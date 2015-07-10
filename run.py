@@ -21,7 +21,6 @@ settings = config[settings_name]
 hostname = "amqp://{}:{}@{}:{}".format(settings['MQ_USERNAME'], settings['MQ_PASSWORD'],
                                        settings['MQ_HOSTNAME'], settings['MQ_PORT'])
 
-
 connection = kombu.Connection(hostname=hostname)
 connection.connect()
 
