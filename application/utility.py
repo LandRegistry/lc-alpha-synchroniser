@@ -4,7 +4,11 @@ import re
 def encode_name(name):
     codes_are = {'&': 0, ' ': 1, '-': 2, "'": 3, '(': 4, ')': 5, '*': 6, '?': 7}
 
-    mash_with_punc = ' '.join(name['forenames']) + '*' + name['surname']
+    mash_with_punc = name['forename']
+    if name['middle_names'] != '':
+        mash_with_punc += ' ' + name['middle_names']
+    mash_with_punc += '*' + name['surname']
+
     mashed = ""
     codes = ""
 
@@ -38,8 +42,7 @@ def encode_name(name):
 def address_to_string(address):
     # TODO: consider implications of current data being <lines>\<postcode>\<county>,
     # where this is storing <lines>\<county>\<postcode>
-    lines = ' '.join(address['address_lines']) + ' ' + address['postcode']
-    return lines
+    return ' '.join(address['address_lines'])
 
 
 def residences_to_string(data):
@@ -50,7 +53,11 @@ def residences_to_string(data):
 
 
 def name_to_string(name):
-    return ' '.join(name['forenames']) + ' ' + name['surname']
+    result = name['forename']
+    if name['middle_names'] != '':
+        result += ' ' + name['middle_names']
+    result += '*' + name['surname']
+    return result
 
 
 def occupation_string(data):
@@ -58,7 +65,7 @@ def occupation_string(data):
     n_a = "(N/A)"
 
     alias_names = ""
-    for name in data['debtor_alternative_name']:
+    for name in data['debtor_alias']:
         alias_names += " " + name_to_string(name).upper()
 
     if 'trading_name' in data and data['trading_name'] != '':
