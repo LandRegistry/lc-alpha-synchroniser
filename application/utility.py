@@ -48,7 +48,7 @@ def address_to_string(address):
 def residences_to_string(data):
     addresses = ""
     for address in data['residence']:
-        addresses += address_to_string(address) + "  "
+        addresses += address_to_string(address) + "   "
     return addresses.strip()
 
 
@@ -66,11 +66,11 @@ def occupation_string(data):
 
     alias_names = ""
     for name in data['debtor_alias']:
-        alias_names += " " + name_to_string(name).upper()
+        alias_names += " " + name_to_string(name)
 
     if 'trading_name' in data and data['trading_name'] != '':
         occu = " T/A " + data['trading_name'] + " AS " + data['occupation']
     else:
         occu = " " + data['occupation']
 
-    return "{}{}{}".format(n_a, alias_names, occu)
+    return "{}{}{}".format(n_a, alias_names, occu).upper()

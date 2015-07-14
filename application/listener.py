@@ -35,9 +35,7 @@ def message_received(body, message):
                 'parish_district': '',
                 'priority_notice_ref': ''
             }
-            print(converted)
-
-            # LEGACY_DB_URI
+            #print(converted)
             uri = app.config['LEGACY_DB_URI'] + '/land_charge'
             headers = {'Content-Type': 'application/json'}
             response = requests.put(uri, data=json.dumps(converted), headers=headers)

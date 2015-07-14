@@ -1,0 +1,31 @@
+{
+  "registration_no": 50003,
+  "debtor_name": {
+    "forename": "Eulah",
+    "middle_names": "",
+    "surname": "Beier"
+  },
+  "debtor_alias": [
+    {
+      "forename": "Stefanie",
+      "middle_names": "",
+      "surname": "Beier"
+    }
+  ],
+  "residence": [
+    {
+      "address_lines": [
+        "37523 Hegmann Burgs",
+        "Feeneyborough",
+        "Carlofurt",
+        "Surrey",
+        "UP38 2TT"
+      ]
+    }
+  ],
+  "registration_date": "2014-11-10",
+  "application_ref": "9480896",
+  "application_type": "PAB",
+  "trading_name": "Matnix",
+  "occupation": "Dentist"
+}
