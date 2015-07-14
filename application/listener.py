@@ -1,5 +1,5 @@
 import sys
-from application import settings
+from application import app
 from application.utility import encode_name, occupation_string, residences_to_string
 import requests
 import json
@@ -9,7 +9,7 @@ import datetime
 def message_received(body, message):
     print(body)
 
-    request_uri = settings['REGISTER_URI'] + '/registration/'
+    request_uri = app.config['REGISTER_URI'] + '/registration/'
     for number in body:
         uri = request_uri + str(number)
         response = requests.get(uri)
@@ -35,10 +35,8 @@ def message_received(body, message):
                 'parish_district': '',
                 'priority_notice_ref': ''
             }
-            print(converted)
-
-            # LEGACY_DB_URI
-            uri = settings['LEGACY_DB_URI'] + '/land_charge'
+            #print(converted)
+            uri = app.config['LEGACY_DB_URI'] + '/land_charge'
             headers = {'Content-Type': 'application/json'}
             response = requests.put(uri, data=json.dumps(converted), headers=headers)
             print(response.status_code)

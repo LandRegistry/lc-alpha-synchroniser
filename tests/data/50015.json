@@ -1,0 +1,29 @@
+{
+  "registration_no": 50015,
+  "debtor_name": {
+    "forename": "Royal",
+    "middle_names": "Wilma",
+    "surname": "Keebler"
+  },
+  "debtor_alias": [
+    {
+      "forename": "Royal",
+      "middle_names": "",
+      "surname": "Keebler"
+    }
+  ],
+  "registration_date": "2014-11-19",
+  "application_ref": "4862823",
+  "application_type": "WOB",
+  "residence": [
+    {
+      "address_lines": [
+        "395 Marjory Square",
+        "Port Sammyville",
+        "Fife",
+        "GS17 3BN"
+      ]
+    }
+  ],
+  "occupation": "Gamekeeper"
+}

@@ -1,14 +1,15 @@
-from application import settings
+from application import app
 from application.listener import message_received
 import kombu
 from kombu.common import maybe_declare
 from amqp import AccessRefused
 import sys
+from flask import Response
 
 
 def run():
-    hostname = "amqp://{}:{}@{}:{}".format(settings['MQ_USERNAME'], settings['MQ_PASSWORD'],
-                                           settings['MQ_HOSTNAME'], settings['MQ_PORT'])
+    hostname = "amqp://{}:{}@{}:{}".format(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'],
+                                           app.config['MQ_HOSTNAME'], app.config['MQ_PORT'])
 
     connection = kombu.Connection(hostname=hostname)
     connection.connect()
@@ -42,3 +43,7 @@ def run():
             print("Interrupted")
             break
     consumer.close()
+
+@app.route('/', methods=["GET"])
+def root():
+    return Response(status=200)
