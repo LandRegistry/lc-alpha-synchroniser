@@ -56,7 +56,7 @@ def name_to_string(name):
     result = name['forename']
     if name['middle_names'] != '':
         result += ' ' + name['middle_names']
-    result += '*' + name['surname']
+    result += ' ' + name['surname']
     return result
 
 

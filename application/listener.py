@@ -2,6 +2,8 @@ import sys
 from application import settings
 from application.utility import encode_name, occupation_string, residences_to_string
 import requests
+import json
+import datetime
 
 
 def message_received(body, message):
@@ -15,7 +17,7 @@ def message_received(body, message):
             data = response.json()
             encoded_debtor_name = encode_name(data['debtor_name'])
             converted = {
-                'time': 'TODO',
+                'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
                 'registration_no': data['registration_no'],
                 'priority_notice': '',
                 'reverse_name': encoded_debtor_name['coded_name'],
@@ -34,6 +36,15 @@ def message_received(body, message):
                 'priority_notice_ref': ''
             }
             print(converted)
+
+            # LEGACY_DB_URI
+            uri = settings['LEGACY_DB_URI'] + '/land_charge'
+            headers = {'Content-Type': 'application/json'}
+            response = requests.put(uri, data=json.dumps(converted), headers=headers)
+            print(response.status_code)
+            if response.status_code != 200:
+                pass  # TODO: error handling
+
 
         else:
             pass  # TODO: bucket the error for retrying later
