@@ -2,6 +2,7 @@ import pytest
 from unittest import mock
 import requests
 import os
+from application import app
 from application.utility import encode_name, address_to_string, residences_to_string
 from application.utility import name_to_string, occupation_string
 from application.listener import message_received, SynchroniserError
@@ -77,14 +78,16 @@ no_alias_output = json.loads(open(os.path.join(directory, 'data/50001_converted.
 has_trading_output = json.loads(open(os.path.join(directory, 'data/50003_converted.json'), 'r').read())
 has_alias_output = json.loads(open(os.path.join(directory, 'data/50015_converted.json'), 'r').read())
 
+
 class FakeResponse(requests.Response):
-    def __init__(self, content='', status_code=200):
+    def __init__(self, content=None, status_code=200):
         super(FakeResponse, self).__init__()
         self.data = content
         self.status_code = status_code
 
     def json(self):
         return self.data
+
 
 class FakeMessage(object):
     def ack(self):
@@ -93,10 +96,12 @@ class FakeMessage(object):
 no_alias_resp = FakeResponse(no_alias, status_code=200)
 has_trading_resp = FakeResponse(has_trading, status_code=200)
 has_alias_resp = FakeResponse(has_alias, status_code=200)
+three_errors_resp = FakeResponse({"messages": 3}, status_code=200)
+
 
 class TestSynchroniser:
     def setup_method(self, method):
-        pass
+        self.app = app.test_client()
 
     def test_encode_name_2_forenames(self):
         data = test_names[0]
@@ -187,20 +192,35 @@ class TestSynchroniser:
     @mock.patch('requests.get', return_value=FakeResponse(status_code=500))
     @mock.patch('requests.put', return_value=FakeResponse())
     def test_error_get_failed(self, mock_put, mock_get):
-
         with pytest.raises(SynchroniserError) as excinfo:
             message_received([50000], FakeMessage())
-        print(excinfo)
-        print(type(excinfo.value))
-        print(dir(excinfo.value))
-        assert excinfo.value.status_code == 500
+        assert excinfo.value.value['status_code'] == 500
+        assert excinfo.value.value['uri'] == '/registration'
+        assert excinfo.value.value['registration_no'] == 50000
 
+    @mock.patch('requests.get', return_value=has_trading_resp)
+    @mock.patch('requests.put', return_value=FakeResponse(status_code=500))
+    def test_error_put_failed(self, mock_put, mock_get):
+        with pytest.raises(SynchroniserError) as excinfo:
+            message_received([50000], FakeMessage())
+        assert excinfo.value.value['status_code'] == 500
+        assert excinfo.value.value['uri'] == '/land_charge'
+        assert excinfo.value.value['registration_no'] == 50000
 
+    def test_app_root(self):
+        response = self.app.get('/')
+        assert response.status_code == 200
 
+    @mock.patch('requests.get', return_value=three_errors_resp)
+    def test_queues_error_count(self, mock):
+        response = self.app.get('/queues/error')
+        data = json.loads(response.data.decode('utf-8'))
+        assert response.status_code == 200
+        assert data['queue_length'] == 3
 
-
-
-        # assert False
-
-    # def test_error_put_failed(self):
-    #     assert False
+    @mock.patch('requests.get', return_value=FakeResponse(status_code=501))
+    def test_queues_catch_mqadmin_failure(self, mock):
+        response = self.app.get('/queues/error')
+        data = json.loads(response.data.decode('utf-8'))
+        assert response.status_code == 500
+        assert data['api_status'] == 501
