@@ -4,7 +4,7 @@ import requests
 import os
 from application.utility import encode_name, address_to_string, residences_to_string
 from application.utility import name_to_string, occupation_string
-from application.listener import message_received
+from application.listener import message_received, SynchroniserError
 import json
 
 # Can't use data from production system (non-public data); can't tell which pre-prod data is copied from production.
@@ -184,7 +184,23 @@ class TestSynchroniser:
         assert onward_data['occupation'] == has_trading_output['occupation']
         assert onward_data['remainder_name'] == has_trading_output['remainder_name']
 
-    def test_error_handling(self):
-        assert False  # Error handling not implemented yet - fail tests until it is
+    @mock.patch('requests.get', return_value=FakeResponse(status_code=500))
+    @mock.patch('requests.put', return_value=FakeResponse())
+    def test_error_get_failed(self, mock_put, mock_get):
+
+        with pytest.raises(SynchroniserError) as excinfo:
+            message_received([50000], FakeMessage())
+        print(excinfo)
+        print(type(excinfo.value))
+        print(dir(excinfo.value))
+        assert excinfo.value.status_code == 500
 
 
+
+
+
+
+        # assert False
+
+    # def test_error_put_failed(self):
+    #     assert False

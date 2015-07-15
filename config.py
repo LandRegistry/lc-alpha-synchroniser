@@ -13,3 +13,4 @@ class DevelopmentConfig(object):
     MQ_PASSWORD = "mqpassword"
     MQ_HOSTNAME = "localhost"
     MQ_PORT = "5672"
+    MQ_ADMIN_PORT = "15672"
