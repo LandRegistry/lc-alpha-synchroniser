@@ -4,16 +4,26 @@ from application.utility import encode_name, occupation_string, residences_to_st
 import requests
 import json
 import datetime
+from log.logger import logger
+
+
+class SynchroniserError(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
 
 
 def message_received(body, message):
-    print(body)
+    logger.info("Received new registrations: {}".format(str(body)))
 
     request_uri = app.config['REGISTER_URI'] + '/registration/'
     for number in body:
         uri = request_uri + str(number)
         response = requests.get(uri)
         if response.status_code == 200:
+            logger.debug("Received response 200 from /registration")
             data = response.json()
             encoded_debtor_name = encode_name(data['debtor_name'])
             converted = {
@@ -30,37 +40,51 @@ def message_received(body, message):
                 'address': residences_to_string(data).upper(),
                 'occupation': occupation_string(data).upper(),
                 'counties': '',
-                'amendment_info': 'Insolvency Service Ref. ' + data['application_ref'], # TODO: somewhat assumed its always INS
+                'amendment_info': 'Insolvency Service Ref. ' + data['application_ref'],  # TODO: somewhat assumed its always INS
                 'property': '',
                 'parish_district': '',
                 'priority_notice_ref': ''
             }
-            #print(converted)
+
             uri = app.config['LEGACY_DB_URI'] + '/land_charge'
             headers = {'Content-Type': 'application/json'}
-            response = requests.put(uri, data=json.dumps(converted), headers=headers)
-            print(response.status_code)
-            if response.status_code != 200:
-                pass  # TODO: error handling
-
+            put_response = requests.put(uri, data=json.dumps(converted), headers=headers)
+            if put_response.status_code == 200:
+                logger.debug("Received response 200 from /land_charge")
+            else:
+                logger.error("Received response {} from /land_charge for registration {}".format(response.status_code,
+                                                                                                 number))
+                error = {
+                    "uri": '/land_charge',
+                    "status_code": put_response.status_code,
+                    "message": put_response.content,
+                    "registration_no": number
+                }
+                raise SynchroniserError(error)
 
         else:
-            pass  # TODO: bucket the error for retrying later
+            logger.error("Received response {} from /registration for registration {}".format(response.status_code,
+                                                                                              number))
+            error = {
+                "uri": '/registration',
+                "status_code": response.status_code,
+                "registration_no": number
+            }
+            raise SynchroniserError(error)
 
-
-
-
-
-
-    # url = app.config['B2B_PROCESSOR_URL'] + '/register'
-    # headers = {'Content-Type': 'application/json'}
-    # response = requests.post(url, data=json.dumps(json_data), headers=headers)
-
-
-
-    # encoded_debtor_name = encode_name(body['debtor_name']
-    #
-    # # TODO: send to legacy-db and handle results
-    # print(converted)
     message.ack()
     sys.stdout.flush()
+
+
+def listen(incoming_connection, error_producer):
+    logger.info('Listening for new registrations')
+
+    while True:
+        try:
+            incoming_connection.drain_events()
+        except SynchroniserError as e:
+            error_producer.publish(e.value)
+            logger.info("Error published")
+        except KeyboardInterrupt:
+            logger.info("Interrupted")
+            break
