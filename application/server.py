@@ -6,6 +6,9 @@ from amqp import AccessRefused
 import sys
 from flask import Response
 from log.logger import logger
+import requests
+from requests.auth import HTTPBasicAuth
+import json
 
 
 def setup_incoming(hostname):
@@ -65,4 +68,25 @@ def run():
 
 @app.route('/', methods=["GET"])
 def root():
+    logger.info("GET /")
     return Response(status=200)
+
+@app.route('/queues/error', methods=["GET"])
+def error_queue():
+    logger.debug("GET queues/error")
+    uri = "http://localhost:{}/api/queues/%2F/sync_error".format(app.config["MQ_ADMIN_PORT"])
+    auth = HTTPBasicAuth(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'])
+    response = requests.get(uri, auth=auth)
+
+    if response.status_code == 200:
+        queue_data = response.json()
+        data = {
+            "queue_length": queue_data["messages"]
+        }
+        return Response(json.dumps(data), status=200)
+
+    else:
+        data = {
+            "api_status": response.status_code
+        }
+        return Response(json.dumps(data), status=500)
