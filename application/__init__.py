@@ -7,7 +7,12 @@ app = Flask(__name__)
 app.config.from_object(os.getenv('SETTINGS', "config.DevelopmentConfig"))
 
 
-from application.server import run
+from application.server import run, error_run
+
 process_thread = threading.Thread(name='synchroniser', target=run)
 process_thread.daemon = True
 process_thread.start()
+
+error_thread = threading.Thread(name='synchroniser', target=error_run)
+error_thread.daemon = True
+error_thread.start()

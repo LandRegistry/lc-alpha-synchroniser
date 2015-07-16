@@ -194,33 +194,20 @@ class TestSynchroniser:
     def test_error_get_failed(self, mock_put, mock_get):
         with pytest.raises(SynchroniserError) as excinfo:
             message_received([50000], FakeMessage())
-        assert excinfo.value.value['status_code'] == 500
-        assert excinfo.value.value['uri'] == '/registration'
-        assert excinfo.value.value['registration_no'] == 50000
+        assert excinfo.value.value[0]['status_code'] == 500
+        assert excinfo.value.value[0]['uri'] == '/registration'
+        assert excinfo.value.value[0]['registration_no'] == 50000
 
     @mock.patch('requests.get', return_value=has_trading_resp)
     @mock.patch('requests.put', return_value=FakeResponse(status_code=500))
     def test_error_put_failed(self, mock_put, mock_get):
         with pytest.raises(SynchroniserError) as excinfo:
             message_received([50000], FakeMessage())
-        assert excinfo.value.value['status_code'] == 500
-        assert excinfo.value.value['uri'] == '/land_charge'
-        assert excinfo.value.value['registration_no'] == 50000
+        assert excinfo.value.value[0]['status_code'] == 500
+        assert excinfo.value.value[0]['uri'] == '/land_charge'
+        assert excinfo.value.value[0]['registration_no'] == 50000
 
     def test_app_root(self):
         response = self.app.get('/')
         assert response.status_code == 200
 
-    @mock.patch('requests.get', return_value=three_errors_resp)
-    def test_queues_error_count(self, mock):
-        response = self.app.get('/queues/error')
-        data = json.loads(response.data.decode('utf-8'))
-        assert response.status_code == 200
-        assert data['queue_length'] == 3
-
-    @mock.patch('requests.get', return_value=FakeResponse(status_code=501))
-    def test_queues_catch_mqadmin_failure(self, mock):
-        response = self.app.get('/queues/error')
-        data = json.loads(response.data.decode('utf-8'))
-        assert response.status_code == 500
-        assert data['api_status'] == 501

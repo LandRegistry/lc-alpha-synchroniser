@@ -16,10 +16,13 @@ class SynchroniserError(Exception):
 
 
 def message_received(body, message):
+    print(type(body))
     logger.info("Received new registrations: {}".format(str(body)))
+    errors = []
 
     request_uri = app.config['REGISTER_URI'] + '/registration/'
     for number in body:
+        logger.debug("Processing {}".format(number))
         uri = request_uri + str(number)
         response = requests.get(uri)
         if response.status_code == 200:
@@ -60,7 +63,7 @@ def message_received(body, message):
                     "message": put_response.content,
                     "registration_no": number
                 }
-                raise SynchroniserError(error)
+                errors.append(error)
 
         else:
             logger.error("Received response {} from /registration for registration {}".format(response.status_code,
@@ -70,8 +73,23 @@ def message_received(body, message):
                 "status_code": response.status_code,
                 "registration_no": number
             }
-            raise SynchroniserError(error)
+            errors.append(error)
 
+    if len(errors) > 0:
+        raise SynchroniserError(errors)
+
+    message.ack()
+    sys.stdout.flush()
+
+
+# INTERIM CODE HERE
+# This whole having a listener inside the application that issues the errors is just so
+# we can do something with them. For Alpha, actually handling the errors isn't being covered.
+def error_received(body, message):
+    logger.info("Received new error: {}".format(str(body)))
+    with open("temp.txt", "a") as file:
+        for item in body:
+            file.write(json.dumps(item) + "\n")
     message.ack()
     sys.stdout.flush()
 
@@ -85,6 +103,17 @@ def listen(incoming_connection, error_producer):
         except SynchroniserError as e:
             error_producer.publish(e.value)
             logger.info("Error published")
+        except KeyboardInterrupt:
+            logger.info("Interrupted")
+            break
+
+
+def listen_for_errors(incoming_connection):
+    logger.info('Listening for errors')
+
+    while True:
+        try:
+            incoming_connection.drain_events()
         except KeyboardInterrupt:
             logger.info("Interrupted")
             break
