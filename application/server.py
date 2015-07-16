@@ -49,10 +49,9 @@ def setup_error_queue(hostname):
 
     producer = kombu.Producer(channel, exchange=exchange, routing_key='sync_error')
 
-    logger.debug('channel_id: {}'.format(producer.channel.channel_id))
-    logger.debug('exchange: {}'.format(producer.exchange.name))
-    logger.debug('routing_key: {}'.format(producer.routing_key))
-    logger.debug('serializer: {}'.format(producer.serializer))
+    logger.debug('channel_id: {}; exchange: {}; routing_key: {}'.format(producer.channel.channel_id,
+                                                                        producer.exchange.name,
+                                                                        producer.routing_key))
     return connection, producer
 
 
