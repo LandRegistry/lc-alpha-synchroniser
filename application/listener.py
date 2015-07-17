@@ -25,18 +25,25 @@ def message_received(body, message):
         logger.debug("Processing {}".format(number))
         uri = request_uri + str(number)
         response = requests.get(uri)
+
+        app_type = data['application_type']
+        if app_type == "PAB":
+            app_type = "PA(B)"
+        elif app_type == "WOB":
+            app_type = "WO(B)"
+
         if response.status_code == 200:
             logger.debug("Received response 200 from /registration")
             data = response.json()
             encoded_debtor_name = encode_name(data['debtor_name'])
             converted = {
                 'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
-                'registration_no': data['registration_no'],
+                'registration_no': data['registration_no'].rjust(8),
                 'priority_notice': '',
                 'reverse_name': encoded_debtor_name['coded_name'],
                 'property_county': 255,  # Always 255 for a bankruptcy.
                 'registration_date': data['registration_date'],
-                'class_type': data['application_type'],
+                'class_type': app_type,
                 'remainder_name': encoded_debtor_name['remainder_name'],
                 'punctuation_code': encoded_debtor_name['hex_code'],
                 'name': '',
