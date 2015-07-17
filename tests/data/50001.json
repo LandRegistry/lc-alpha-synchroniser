@@ -1,8 +1,10 @@
 {
   "registration_no": 50001,
   "debtor_name": {
-    "forename": "Eriberto",
-    "middle_names": "Eleazar",
+    "forenames": [
+      "Eriberto",
+      "Eleazar"
+    ],
     "surname": "Kshlerin"
   },
   "debtor_alias": [],

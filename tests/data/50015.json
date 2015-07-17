@@ -1,14 +1,12 @@
 {
   "registration_no": 50015,
   "debtor_name": {
-    "forename": "Royal",
-    "middle_names": "Wilma",
+    "forename": ["Royal", "Wilma" ],
     "surname": "Keebler"
   },
   "debtor_alias": [
     {
-      "forename": "Royal",
-      "middle_names": "",
+      "forename": ["Royal"],
       "surname": "Keebler"
     }
   ],

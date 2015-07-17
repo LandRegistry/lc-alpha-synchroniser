@@ -14,15 +14,15 @@ import json
 # this test data. Script checks out OK on pre-prod examples.
 test_names = [
     {
-        "input": {"forename": "Adelle", "middle_names": "Shaylee", "surname": "Renner"},
+        "input": {"forenames": ["Adelle", "Shaylee"], "surname": "Renner"},
         "expected": {"coded_name": "RENNEREELYAH", "remainder_name": "ADELLES", "hex_code": "26C7"},
         "string": "Adelle Shaylee Renner"
     }, {
-        "input": {"forename": "Bob", "middle_names": "Oscar Francis", "surname": "Howard"},
+        "input": {"forenames": ["Bob", "Oscar", "Francis"], "surname": "Howard"},
         "expected": {"coded_name": "DRAWOHSICNAR", "remainder_name": "BOBOSCARF", "hex_code": "2325C7"},
         "string": "Bob Oscar Francis Howard"
     }, {
-        "input": {"forename": "Dominique", "middle_names": "", "surname": "O'Brien"},
+        "input": {"forenames": ["Dominique"], "surname": "O'Brien"},
         "expected": {"coded_name": "NEIRBOEUQINI", "remainder_name": "DOM", "hex_code": "C961"},
         "string": "Dominique O'Brien"
     }
@@ -53,18 +53,18 @@ test_occupation = [
     },
     {
         "input": {
-            "debtor_alias": [{"forename": "Robert", "middle_names": "", "surname": "Howard"}],
+            "debtor_alias": [{"forenames": ["Robert"], "surname": "Howard"}],
             "occupation": "Civil Servant"
         },
-        "expected": "(N/A) ROBERT HOWARD CIVIL SERVANT"
+        "expected": "(N/A) AKA ROBERT HOWARD CIVIL SERVANT"
     },
     {
         "input": {
-            "debtor_alias": [{"forename": "Mo", "middle_names": "", "surname": "O'Brien"}],
+            "debtor_alias": [{"forenames": ["Mo"], "surname": "O'Brien"}],
             "occupation": "Violinist",
             "trading_name": "Agent Candid"
         },
-        "expected": "(N/A) MO O'BRIEN T/A AGENT CANDID AS VIOLINIST"
+        "expected": "(N/A) AKA MO O'BRIEN T/A AGENT CANDID AS VIOLINIST"
     }
 ]
 

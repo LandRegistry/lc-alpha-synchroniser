@@ -4,9 +4,9 @@ import re
 def encode_name(name):
     codes_are = {'&': 0, ' ': 1, '-': 2, "'": 3, '(': 4, ')': 5, '*': 6, '?': 7}
 
-    mash_with_punc = name['forename']
-    if name['middle_names'] != '':
-        mash_with_punc += ' ' + name['middle_names']
+    mash_with_punc = ' '.join(name['forenames'])
+    # if name['middle_names'] != '':
+    #    mash_with_punc += ' ' + name['middle_names']
     mash_with_punc += '*' + name['surname']
 
     mashed = ""
@@ -53,9 +53,9 @@ def residences_to_string(data):
 
 
 def name_to_string(name):
-    result = name['forename']
-    if name['middle_names'] != '':
-        result += ' ' + name['middle_names']
+    result = ' '.join(name['forenames'])
+    # if name['middle_names'] != '':
+    #    result += ' ' + name['middle_names']
     result += ' ' + name['surname']
     return result
 
@@ -67,6 +67,9 @@ def occupation_string(data):
     alias_names = ""
     for name in data['debtor_alias']:
         alias_names += " " + name_to_string(name)
+
+    if alias_names != "":
+        alias_names = " AKA" + alias_names
 
     if 'trading_name' in data and data['trading_name'] != '':
         occu = " T/A " + data['trading_name'] + " AS " + data['occupation']

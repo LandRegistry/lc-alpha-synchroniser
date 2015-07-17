@@ -1,14 +1,14 @@
 {
   "registration_no": 50003,
   "debtor_name": {
-    "forename": "Eulah",
-    "middle_names": "",
+    "forenames": [
+      "Eulah"
+    ],
     "surname": "Beier"
   },
   "debtor_alias": [
     {
-      "forename": "Stefanie",
-      "middle_names": "",
+      "forenames": [ "Stefanie"],
       "surname": "Beier"
     }
   ],

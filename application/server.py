@@ -112,6 +112,7 @@ def root():
 # we can do something with them. For Alpha, actually handling the errors isn't being covered.
 @app.route('/queue/error', methods=['GET'])
 def get_errors():
+    logger.debug("GET on /queue/error")
     data = open("temp.txt", 'r').read()
     data = data.strip()
     data = "[{}]".format(",".join(data.split("\n")))
