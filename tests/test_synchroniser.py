@@ -166,6 +166,7 @@ class TestSynchroniser:
         assert onward_data['reverse_name'] == no_alias_output['reverse_name']
         assert onward_data['occupation'] == no_alias_output['occupation']
         assert onward_data['remainder_name'] == no_alias_output['remainder_name']
+        assert onward_data['registration_no'] == no_alias_output['registration_no']
 
     @mock.patch('requests.get', return_value=has_alias_resp)
     @mock.patch('requests.put', return_value=FakeResponse())
@@ -177,6 +178,7 @@ class TestSynchroniser:
         assert onward_data['reverse_name'] == has_alias_output['reverse_name']
         assert onward_data['occupation'] == has_alias_output['occupation']
         assert onward_data['remainder_name'] == has_alias_output['remainder_name']
+        assert onward_data['registration_no'] == has_alias_output['registration_no']
 
     @mock.patch('requests.get', return_value=has_trading_resp)
     @mock.patch('requests.put', return_value=FakeResponse())
@@ -188,6 +190,7 @@ class TestSynchroniser:
         assert onward_data['reverse_name'] == has_trading_output['reverse_name']
         assert onward_data['occupation'] == has_trading_output['occupation']
         assert onward_data['remainder_name'] == has_trading_output['remainder_name']
+        assert onward_data['registration_no'] == has_trading_output['registration_no']
 
     @mock.patch('requests.get', return_value=FakeResponse(status_code=500))
     @mock.patch('requests.put', return_value=FakeResponse())
