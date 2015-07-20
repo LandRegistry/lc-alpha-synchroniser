@@ -5,7 +5,7 @@ import os
 from application import app
 from application.utility import encode_name, address_to_string, residences_to_string
 from application.utility import name_to_string, occupation_string
-from application.listener import message_received, SynchroniserError
+from application.listener import message_received, SynchroniserError, listen
 import json
 
 # Can't use data from production system (non-public data); can't tell which pre-prod data is copied from production.
@@ -68,6 +68,11 @@ test_occupation = [
     }
 ]
 
+invalid_data = {
+    "blah": "blah blah blah",
+    "blah blah blah": "blah blah"
+}
+
 directory = os.path.dirname(__file__)
 
 no_alias = json.loads(open(os.path.join(directory, 'data/50001.json'), 'r').read())
@@ -77,6 +82,20 @@ has_alias = json.loads(open(os.path.join(directory, 'data/50015.json'), 'r').rea
 no_alias_output = json.loads(open(os.path.join(directory, 'data/50001_converted.json'), 'r').read())
 has_trading_output = json.loads(open(os.path.join(directory, 'data/50003_converted.json'), 'r').read())
 has_alias_output = json.loads(open(os.path.join(directory, 'data/50015_converted.json'), 'r').read())
+
+
+class FakeConnection(object):
+    def drain_events(self):
+        raise SynchroniserError({"error_message": "this failed", "exception_class": "Exception"})
+
+
+class FakePublisher(object):
+    def __init__(self):
+        self.data = {}
+
+
+    def publish(self, data):
+        self.data = data
 
 
 class FakeResponse(requests.Response):
@@ -97,7 +116,7 @@ no_alias_resp = FakeResponse(no_alias, status_code=200)
 has_trading_resp = FakeResponse(has_trading, status_code=200)
 has_alias_resp = FakeResponse(has_alias, status_code=200)
 three_errors_resp = FakeResponse({"messages": 3}, status_code=200)
-
+#exception_data = {"error_message": "this failed", "exception_class": "Exception"}
 
 class TestSynchroniser:
     def setup_method(self, method):
@@ -209,6 +228,26 @@ class TestSynchroniser:
         assert excinfo.value.value[0]['status_code'] == 500
         assert excinfo.value.value[0]['uri'] == '/land_charge'
         assert excinfo.value.value[0]['registration_no'] == 50000
+
+    @mock.patch('requests.get', side_effect=Exception('Fail'))
+    @mock.patch('requests.put', return_value=FakeResponse())
+    def test_generic_exceptipn(self, mock_put, mock_get):
+        # Test ensures that exceptions are trapped and their data is wrapped up
+        # to be raised back to the main loop.
+        with pytest.raises(SynchroniserError) as excinfo:
+            message_received([50000], FakeMessage())
+        assert excinfo.value.value[0]['registration_no'] == 50000
+        assert excinfo.value.value[0]['error_message'] == "Fail"
+        assert excinfo.value.value[0]['exception_class'] == "Exception"
+
+    @mock.patch('kombu.Producer.publish')
+    def test_exception_handled(self, mock_publish):
+        # Test ensures that SynchroniserExceptions (containing information about
+        # other exeptions) is passed onto the error-publisher.
+        producer = FakePublisher()
+        listen(FakeConnection(), producer, False)
+        assert producer.data['exception_class'] == "Exception"
+        assert producer.data['error_message'] == "this failed"
 
     def test_app_root(self):
         response = self.app.get('/')
