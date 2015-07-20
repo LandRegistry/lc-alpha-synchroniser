@@ -5,6 +5,7 @@ import requests
 import json
 import datetime
 from log.logger import logger
+import re
 
 
 class SynchroniserError(Exception):
@@ -29,11 +30,8 @@ def message_received(body, message):
         if response.status_code == 200:
             logger.debug("Received response 200 from /registration")
             data = response.json()
-            app_type = data['application_type']
-            if app_type == "PAB":
-                app_type = "PA(B)"
-            elif app_type == "WOB":
-                app_type = "WO(B)"
+            app_type = re.sub("(.{2})(.*)", '\g<1>(\g<2>)', data['application_type'])
+
             encoded_debtor_name = encode_name(data['debtor_name'])
             converted = {
                 'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
