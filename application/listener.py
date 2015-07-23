@@ -4,7 +4,7 @@ from application.utility import encode_name, occupation_string, residences_to_st
 import requests
 import json
 import datetime
-from log.logger import logger
+import logging
 import re
 
 
@@ -41,27 +41,27 @@ def create_legacy_data(data):
 
 
 def message_received(body, message):
-    logger.info("Received new registrations: {}".format(str(body)))
+    logging.info("Received new registrations: {}".format(str(body)))
     errors = []
 
     request_uri = app.config['REGISTER_URI'] + '/registration/'
     for number in body:
         try:
-            logger.debug("Processing {}".format(number))
+            logging.debug("Processing {}".format(number))
             uri = request_uri + str(number)
             response = requests.get(uri)
 
             if response.status_code == 200:
-                logger.debug("Received response 200 from /registration")
+                logging.debug("Received response 200 from /registration")
                 data = response.json()
                 converted = create_legacy_data(data)
                 uri = app.config['LEGACY_DB_URI'] + '/land_charge'
                 headers = {'Content-Type': 'application/json'}
                 put_response = requests.put(uri, data=json.dumps(converted), headers=headers)
                 if put_response.status_code == 200:
-                    logger.debug("Received response 200 from /land_charge")
+                    logging.debug("Received response 200 from /land_charge")
                 else:
-                    logger.error("Received response {} from /land_charge for registration {}".format(response.status_code,
+                    logging.error("Received response {} from /land_charge for registration {}".format(response.status_code,
                                                                                                      number))
                     error = {
                         "uri": '/land_charge',
@@ -71,7 +71,7 @@ def message_received(body, message):
                     }
                     errors.append(error)
             else:
-                logger.error("Received response {} from /registration for registration {}".format(response.status_code,
+                logging.error("Received response {} from /registration for registration {}".format(response.status_code,
                                                                                                   number))
                 error = {
                     "uri": '/registration',
@@ -86,17 +86,18 @@ def message_received(body, message):
                 "error_message": str(e)
             })
 
+    message.ack()
     if len(errors) > 0:
         raise SynchroniserError(errors)
 
-    message.ack()
+
 
 
 # INTERIM CODE HERE
 # This whole having a listener inside the application that issues the errors is just so
 # we can do something with them. For Alpha, actually handling the errors isn't being covered.
 def error_received(body, message):
-    logger.info("Received new error: {}".format(str(body)))
+    logging.info("Received new error: {}".format(str(body)))
     with open("temp.txt", "a") as file:
         for item in body:
             file.write(json.dumps(item) + "\n")
@@ -105,16 +106,16 @@ def error_received(body, message):
 
 
 def listen(incoming_connection, error_producer, run_forever=True):
-    logger.info('Listening for new registrations')
+    logging.info('Listening for new registrations')
 
     while True:
         try:
             incoming_connection.drain_events()
         except SynchroniserError as e:
             error_producer.publish(e.value)
-            logger.info("Error published")
+            logging.info("Error published")
         except KeyboardInterrupt:
-            logger.info("Interrupted")
+            logging.info("Interrupted")
             break
 
         if not run_forever:
@@ -122,11 +123,11 @@ def listen(incoming_connection, error_producer, run_forever=True):
 
 
 def listen_for_errors(incoming_connection):
-    logger.info('Listening for errors')
+    logging.info('Listening for errors')
 
     while True:
         try:
             incoming_connection.drain_events()
         except KeyboardInterrupt:
-            logger.info("Interrupted")
+            logging.info("Interrupted")
             break

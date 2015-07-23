@@ -5,10 +5,7 @@ from kombu.common import maybe_declare
 from amqp import AccessRefused
 import sys
 from flask import Response
-from log.logger import logger
-import requests
-from requests.auth import HTTPBasicAuth
-import json
+import logging
 
 
 def setup_incoming(hostname):
@@ -27,14 +24,14 @@ def setup_incoming(hostname):
     try:
         queue.declare()
     except AccessRefused:
-        logger.error("Access Refused")
-    logger.debug("queue name, exchange, binding_key: {}, {}, {}".format(queue.name, queue.exchange, queue.routing_key))
+        logging.error("Access Refused")
+    logging.debug("queue name, exchange, binding_key: {}, {}, {}".format(queue.name, queue.exchange, queue.routing_key))
 
     consumer = kombu.Consumer(channel, queues=queue, callbacks=[message_received], accept=['json'])
     consumer.consume()
 
-    logger.debug('channel_id: {}'.format(consumer.channel.channel_id))
-    logger.debug('queue(s): {}'.format(consumer.queues))
+    logging.debug('channel_id: {}'.format(consumer.channel.channel_id))
+    logging.debug('queue(s): {}'.format(consumer.queues))
     return connection, consumer
 
 
@@ -52,14 +49,14 @@ def setup_error_incoming(hostname):
     try:
         queue.declare()
     except AccessRefused:
-        logger.error("Access Refused")
-    logger.debug("queue name, exchange, binding_key: {}, {}, {}".format(queue.name, queue.exchange, queue.routing_key))
+        logging.error("Access Refused")
+    logging.debug("queue name, exchange, binding_key: {}, {}, {}".format(queue.name, queue.exchange, queue.routing_key))
 
     consumer = kombu.Consumer(channel, queues=queue, callbacks=[error_received], accept=['json'])
     consumer.consume()
 
-    logger.debug('channel_id: {}'.format(consumer.channel.channel_id))
-    logger.debug('queue(s): {}'.format(consumer.queues))
+    logging.debug('channel_id: {}'.format(consumer.channel.channel_id))
+    logging.debug('queue(s): {}'.format(consumer.queues))
     return connection, consumer
 
 
@@ -74,14 +71,14 @@ def setup_error_queue(hostname):
 
     producer = kombu.Producer(channel, exchange=exchange, routing_key='sync_error')
 
-    logger.debug('channel_id: {}; exchange: {}; routing_key: {}'.format(producer.channel.channel_id,
+    logging.debug('channel_id: {}; exchange: {}; routing_key: {}'.format(producer.channel.channel_id,
                                                                         producer.exchange.name,
                                                                         producer.routing_key))
     return connection, producer
 
 
 def run():
-    logger.info("Synchroniser started")
+    logging.info("Synchroniser started")
     hostname = "amqp://{}:{}@{}:{}".format(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'],
                                            app.config['MQ_HOSTNAME'], app.config['MQ_PORT'])
     incoming_connection, incoming_consumer = setup_incoming(hostname)
@@ -92,7 +89,7 @@ def run():
 
 
 def error_run():
-    logger.info("Synchroniser Error-Watch Started")
+    logging.info("Synchroniser Error-Watch Started")
     hostname = "amqp://{}:{}@{}:{}".format(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'],
                                            app.config['MQ_HOSTNAME'], app.config['MQ_PORT'])
     incoming_connection, incoming_consumer = setup_error_incoming(hostname)
@@ -103,7 +100,7 @@ def error_run():
 
 @app.route('/', methods=["GET"])
 def root():
-    logger.info("GET /")
+    logging.info("GET /")
     return Response(status=200)
 
 
@@ -112,7 +109,7 @@ def root():
 # we can do something with them. For Alpha, actually handling the errors isn't being covered.
 @app.route('/queue/error', methods=['GET'])
 def get_errors():
-    logger.debug("GET on /queue/error")
+    logging.debug("GET on /queue/error")
     data = open("temp.txt", 'r').read()
     data = data.strip()
     data = "[{}]".format(",".join(data.split("\n")))
