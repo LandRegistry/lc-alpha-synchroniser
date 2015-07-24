@@ -110,7 +110,7 @@ def root():
 @app.route('/queue/error', methods=['GET'])
 def get_errors():
     logging.debug("GET on /queue/error")
-    data = open("temp.txt", 'r').read()
+    data = open("/tmp/temp.txt", 'r').read()
     data = data.strip()
     data = "[{}]".format(",".join(data.split("\n")))
     return Response(data, status=200, mimetype='application/json')

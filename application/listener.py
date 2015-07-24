@@ -98,7 +98,7 @@ def message_received(body, message):
 # we can do something with them. For Alpha, actually handling the errors isn't being covered.
 def error_received(body, message):
     logging.info("Received new error: {}".format(str(body)))
-    with open("temp.txt", "a") as file:
+    with open("/tmp/temp.txt", "a") as file:
         for item in body:
             file.write(json.dumps(item) + "\n")
     message.ack()
