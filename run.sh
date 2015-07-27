@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-export SETTINGS="DevelopmentConfig"
+export SETTINGS="config.DevelopmentConfig"
 python3 run.py
