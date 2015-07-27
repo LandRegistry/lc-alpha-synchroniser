@@ -1,5 +1,5 @@
 from application import app
-from application.listener import message_received, listen, error_received, listen_for_errors
+from application.listener import message_received, listen
 import kombu
 from kombu.common import maybe_declare
 from amqp import AccessRefused
@@ -35,50 +35,13 @@ def setup_incoming(hostname):
     return connection, consumer
 
 
-def setup_error_incoming(hostname):
-    connection = kombu.Connection(hostname=hostname)
-    connection.connect()
-
-    exchange = kombu.Exchange(type="direct", name="synchroniser.error")
-    channel = connection.channel()
-    exchange.maybe_bind(channel)
-    maybe_declare(exchange, channel)
-
-    queue = kombu.Queue(name='sync_error', exchange=exchange, routing_key='sync_error')
-    queue.maybe_bind(channel)
-    try:
-        queue.declare()
-    except AccessRefused:
-        logging.error("Access Refused")
-    logging.debug("queue name, exchange, binding_key: {}, {}, {}".format(queue.name, queue.exchange, queue.routing_key))
-
-    consumer = kombu.Consumer(channel, queues=queue, callbacks=[error_received], accept=['json'])
-    consumer.consume()
-
-    logging.debug('channel_id: {}'.format(consumer.channel.channel_id))
-    logging.debug('queue(s): {}'.format(consumer.queues))
-    return connection, consumer
-
-
 def setup_error_queue(hostname):
     connection = kombu.Connection(hostname=hostname)
-    connection.connect()
-
-    exchange = kombu.Exchange(type="direct", name="synchroniser.error")
-    channel = connection.channel()
-    exchange.maybe_bind(channel)
-    maybe_declare(exchange, channel)
-
-    producer = kombu.Producer(channel, exchange=exchange, routing_key='sync_error')
-
-    logging.debug('channel_id: {}; exchange: {}; routing_key: {}'.format(producer.channel.channel_id,
-                                                                        producer.exchange.name,
-                                                                        producer.routing_key))
+    producer = connection.SimpleQueue('sync_error')
     return connection, producer
 
 
 def run():
-    logging.info("Synchroniser started")
     hostname = "amqp://{}:{}@{}:{}".format(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'],
                                            app.config['MQ_HOSTNAME'], app.config['MQ_PORT'])
     incoming_connection, incoming_consumer = setup_incoming(hostname)
@@ -88,29 +51,8 @@ def run():
     incoming_consumer.close()
 
 
-def error_run():
-    logging.info("Synchroniser Error-Watch Started")
-    hostname = "amqp://{}:{}@{}:{}".format(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'],
-                                           app.config['MQ_HOSTNAME'], app.config['MQ_PORT'])
-    incoming_connection, incoming_consumer = setup_error_incoming(hostname)
-
-    listen_for_errors(incoming_connection)
-    incoming_consumer.close()
-
-
 @app.route('/', methods=["GET"])
 def root():
     logging.info("GET /")
     return Response(status=200)
 
-
-# INTERIM CODE HERE
-# This whole having a listener inside the application that issues the errors is just so
-# we can do something with them. For Alpha, actually handling the errors isn't being covered.
-@app.route('/queue/error', methods=['GET'])
-def get_errors():
-    logging.debug("GET on /queue/error")
-    data = open("/tmp/temp.txt", 'r').read()
-    data = data.strip()
-    data = "[{}]".format(",".join(data.split("\n")))
-    return Response(data, status=200, mimetype='application/json')
