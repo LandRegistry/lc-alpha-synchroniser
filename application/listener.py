@@ -61,8 +61,8 @@ def message_received(body, message):
                 if put_response.status_code == 200:
                     logging.debug("Received response 200 from /land_charge")
                 else:
-                    logging.error("Received response {} from /land_charge for registration {}".format(response.status_code,
-                                                                                                     number))
+                    logging.error("Received response {} from /land_charge for registration {}".format(
+                        response.status_code, number))
                     error = {
                         "uri": '/land_charge',
                         "status_code": put_response.status_code,

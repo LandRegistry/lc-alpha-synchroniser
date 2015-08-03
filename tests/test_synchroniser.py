@@ -86,15 +86,14 @@ has_alias_output = json.loads(open(os.path.join(directory, 'data/50015_converted
 
 class FakeConnection(object):
     def drain_events(self):
-        raise SynchroniserError({"error_message": "this failed", "exception_class": "Exception"})
+        raise SynchroniserError([{"error_message": "this failed", "exception_class": "Exception"}])
 
 
 class FakePublisher(object):
     def __init__(self):
         self.data = {}
 
-
-    def publish(self, data):
+    def put(self, data):
         self.data = data
 
 
@@ -246,6 +245,7 @@ class TestSynchroniser:
         # other exeptions) is passed onto the error-publisher.
         producer = FakePublisher()
         listen(FakeConnection(), producer, False)
+        print(producer.data)
         assert producer.data['exception_class'] == "Exception"
         assert producer.data['error_message'] == "this failed"
 
