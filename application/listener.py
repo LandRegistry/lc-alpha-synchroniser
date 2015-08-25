@@ -17,7 +17,7 @@ class SynchroniserError(Exception):
 
 
 def create_legacy_data(data):
-    app_type = re.sub("(.{2})(.*)", '\g<1>(\g<2>)', data['application_type'])
+    app_type = data['application_type']
     encoded_debtor_name = encode_name(data['debtor_name'])
     return {
         'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
