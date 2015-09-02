@@ -46,21 +46,21 @@ test_residence = {
 test_occupation = [
     {
         "input": {
-            "debtor_alias": [],
+            "debtor_alternative_name": [],
             "occupation": "Anthropologist"
         },
         "expected": "(N/A) ANTHROPOLOGIST"
     },
     {
         "input": {
-            "debtor_alias": [{"forenames": ["Robert"], "surname": "Howard"}],
+            "debtor_alternative_name": [{"forenames": ["Robert"], "surname": "Howard"}],
             "occupation": "Civil Servant"
         },
         "expected": "(N/A) AKA ROBERT HOWARD CIVIL SERVANT"
     },
     {
         "input": {
-            "debtor_alias": [{"forenames": ["Mo"], "surname": "O'Brien"}],
+            "debtor_alternative_name": [{"forenames": ["Mo"], "surname": "O'Brien"}],
             "occupation": "Violinist",
             "trading_name": "Agent Candid"
         },
