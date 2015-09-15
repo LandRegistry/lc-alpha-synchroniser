@@ -1,4 +1,3 @@
-import os
 
 
 class Config(object):
@@ -13,7 +12,6 @@ class DevelopmentConfig(Config):
     MQ_PASSWORD = "mqpassword"
     MQ_HOSTNAME = "localhost"
     MQ_PORT = "5672"
-    MQ_ADMIN_PORT = "15672"
 
 
 class PreviewConfig(Config):

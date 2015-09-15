@@ -1,11 +1,11 @@
-from application import app
+from application.routes import app
 from application.listener import message_received, listen
 import kombu
 from kombu.common import maybe_declare
 from amqp import AccessRefused
-import sys
 from flask import Response
 import logging
+import threading
 
 
 def setup_incoming(hostname):
@@ -42,6 +42,7 @@ def setup_error_queue(hostname):
 
 
 def run():
+    logging.info('Run')
     hostname = "amqp://{}:{}@{}:{}".format(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'],
                                            app.config['MQ_HOSTNAME'], app.config['MQ_PORT'])
     incoming_connection, incoming_consumer = setup_incoming(hostname)
@@ -49,10 +50,3 @@ def run():
 
     listen(incoming_connection, error_producer)
     incoming_consumer.close()
-
-
-@app.route('/', methods=["GET"])
-def root():
-    logging.info("GET /")
-    return Response(status=200)
-

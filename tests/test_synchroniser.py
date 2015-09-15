@@ -2,7 +2,7 @@ import pytest
 from unittest import mock
 import requests
 import os
-from application import app
+from application.routes import app
 from application.utility import encode_name, address_to_string, residences_to_string
 from application.utility import name_to_string, occupation_string
 from application.listener import message_received, SynchroniserError, listen
@@ -111,11 +111,14 @@ class FakeMessage(object):
     def ack(self):
         pass
 
+
 no_alias_resp = FakeResponse(no_alias, status_code=200)
 has_trading_resp = FakeResponse(has_trading, status_code=200)
 has_alias_resp = FakeResponse(has_alias, status_code=200)
 three_errors_resp = FakeResponse({"messages": 3}, status_code=200)
-#exception_data = {"error_message": "this failed", "exception_class": "Exception"}
+
+
+# exception_data = {"error_message": "this failed", "exception_class": "Exception"}
 
 class TestSynchroniser:
     def setup_method(self, method):
@@ -252,4 +255,3 @@ class TestSynchroniser:
     def test_app_root(self):
         response = self.app.get('/')
         assert response.status_code == 200
-

@@ -1,11 +1,9 @@
-import sys
-from application import app
+from application.routes import app
 from application.utility import encode_name, occupation_string, residences_to_string
 import requests
 import json
 import datetime
 import logging
-import re
 
 
 class SynchroniserError(Exception):
