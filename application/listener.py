@@ -9,6 +9,7 @@ import logging
 class SynchroniserError(Exception):
     def __init__(self, value):
         self.value = value
+        super(SynchroniserError, self).__init__(value)
 
     def __str__(self):
         return repr(self.value)
@@ -39,7 +40,7 @@ def create_legacy_data(data):
 
 
 def message_received(body, message):
-    logging.info("Received new registrations: {}".format(str(body)))
+    logging.info("Received new registrations: %s", str(body))
     errors = []
 
     request_uri = app.config['REGISTER_URI'] + '/registration/'
@@ -59,7 +60,7 @@ def message_received(body, message):
                 if put_response.status_code == 200:
                     logging.debug("Received response 200 from /land_charge")
                 else:
-                    logging.error("Received response {} from /land_charge for registration {}".format(
+                    logging.error("Received response %d from /land_charge for registration %s".format(
                         response.status_code, number))
                     error = {
                         "uri": '/land_charge',
@@ -69,8 +70,8 @@ def message_received(body, message):
                     }
                     errors.append(error)
             else:
-                logging.error("Received response {} from /registration for registration {}".format(response.status_code,
-                                                                                                   number))
+                logging.error("Received response %d from /registration for registration %s",
+                              response.status_code, number)
                 error = {
                     "uri": '/registration',
                     "status_code": response.status_code,
