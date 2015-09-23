@@ -12,7 +12,7 @@ def encode_name(name):
     mashed = ""
     codes = ""
 
-    search = re.search("'|\s|\*", mash_with_punc)
+    search = re.search(r"'|\s|\*", mash_with_punc)
     while search is not None:
         index = search.start()
         word = mash_with_punc[0:index]
@@ -25,7 +25,7 @@ def encode_name(name):
         code = (punc << 5) + length
         codes += '{:02x}'.format(code)
 
-        search = re.search("'|\s|\*", mash_with_punc)
+        search = re.search(r"'|\s|\*", mash_with_punc)
 
     mashed += mash_with_punc
 

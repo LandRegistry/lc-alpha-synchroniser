@@ -46,7 +46,7 @@ def message_received(body, message):
     request_uri = app.config['REGISTER_URI'] + '/registration/'
     for number in body:
         try:
-            logging.debug("Processing {}".format(number))
+            logging.debug("Processing %d", number)
             uri = request_uri + str(number)
             response = requests.get(uri)
 
@@ -60,8 +60,8 @@ def message_received(body, message):
                 if put_response.status_code == 200:
                     logging.debug("Received response 200 from /land_charge")
                 else:
-                    logging.error("Received response %d from /land_charge for registration %s".format(
-                        response.status_code, number))
+                    logging.error("Received response %d from /land_charge for registration %s",
+                                  response.status_code, number)
                     error = {
                         "uri": '/land_charge',
                         "status_code": put_response.status_code,
@@ -78,11 +78,11 @@ def message_received(body, message):
                     "registration_no": number
                 }
                 errors.append(error)
-        except Exception as e:
+        except Exception as exception:
             errors.append({
                 "registration_no": number,
-                "exception_class": type(e).__name__,
-                "error_message": str(e)
+                "exception_class": type(exception).__name__,
+                "error_message": str(exception)
             })
 
     message.ack()
@@ -96,8 +96,8 @@ def listen(incoming_connection, error_producer, run_forever=True):
     while True:
         try:
             incoming_connection.drain_events()
-        except SynchroniserError as e:
-            for error in e.value:
+        except SynchroniserError as exception:
+            for error in exception.value:
                 error_producer.put(error)
             logging.info("Error published")
         except KeyboardInterrupt:
