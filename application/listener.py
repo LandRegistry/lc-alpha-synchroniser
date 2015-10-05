@@ -78,6 +78,7 @@ def message_received(body, message):
                     "registration_no": number
                 }
                 errors.append(error)
+        # pylint: disable=broad-except
         except Exception as exception:
             errors.append({
                 "registration_no": number,
