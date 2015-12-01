@@ -43,7 +43,7 @@ def message_received(body, message):
     logging.info("Received new registrations: %s", str(body))
     errors = []
 
-    request_uri = app.config['REGISTER_URI'] + '/registration/'
+    request_uri = app.config['REGISTER_URI'] + '/registrations/'
     for number in body:
         try:
             logging.debug("Processing %s", number)
@@ -51,16 +51,16 @@ def message_received(body, message):
             response = requests.get(uri)
 
             if response.status_code == 200:
-                logging.debug("Received response 200 from /registration")
+                logging.debug("Received response 200 from /registrations")
                 data = response.json()
                 converted = create_legacy_data(data)
-                uri = app.config['LEGACY_DB_URI'] + '/land_charge'
+                uri = app.config['LEGACY_DB_URI'] + '/land_charges'
                 headers = {'Content-Type': 'application/json'}
                 put_response = requests.put(uri, data=json.dumps(converted), headers=headers)
                 if put_response.status_code == 200:
-                    logging.debug("Received response 200 from /land_charge")
+                    logging.debug("Received response 200 from /land_charges")
                 else:
-                    logging.error("Received response %d from /land_charge for registration %s",
+                    logging.error("Received response %d from /land_charges for registration %s",
                                   response.status_code, number)
                     error = {
                         "uri": '/land_charge',
@@ -70,10 +70,10 @@ def message_received(body, message):
                     }
                     errors.append(error)
             else:
-                logging.error("Received response %d from /registration for registration %s",
+                logging.error("Received response %d from /registrations for registration %s",
                               response.status_code, number)
                 error = {
-                    "uri": '/registration',
+                    "uri": '/registrations',
                     "status_code": response.status_code,
                     "registration_no": number
                 }
