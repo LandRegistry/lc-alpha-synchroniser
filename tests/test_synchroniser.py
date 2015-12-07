@@ -219,7 +219,7 @@ class TestSynchroniser:
         with pytest.raises(SynchroniserError) as excinfo:
             message_received([50000], FakeMessage())
         assert excinfo.value.value[0]['status_code'] == 500
-        assert excinfo.value.value[0]['uri'] == '/registration'
+        assert excinfo.value.value[0]['uri'] == '/registrations'
         assert excinfo.value.value[0]['registration_no'] == 50000
 
     @mock.patch('requests.get', return_value=has_trading_resp)
