@@ -35,7 +35,7 @@ def setup_incoming(hostname):
 
 def setup_error_queue(hostname):
     connection = kombu.Connection(hostname=hostname)
-    producer = connection.SimpleQueue('sync_error')
+    producer = connection.SimpleQueue('errors')
     return producer
 
 
