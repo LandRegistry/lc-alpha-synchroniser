@@ -65,7 +65,7 @@ def occupation_string(data):
     n_a = "(N/A)"
 
     alias_names = ""
-    for name in data['debtor_alternative_name']:
+    for name in data['debtor_names'][1:]:
         alias_names += " " + name_to_string(name)
 
     if alias_names != "":
