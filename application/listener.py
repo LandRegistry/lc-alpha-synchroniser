@@ -124,7 +124,7 @@ def receive_new_regs(errors, body):
                 })
 
             coc = body['application_type']
-            create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body)
+            create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
 
 
 def create_document_row(resource, reg_no, reg_date, body, app_type):
