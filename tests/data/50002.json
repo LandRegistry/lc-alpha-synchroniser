@@ -33,5 +33,11 @@
   ],
   "occupation": "Composer",
   "legal_body": "A Court",
-  "legal_body_ref": "123 of 2015"
+  "legal_body_ref": "123 of 2015",
+  "cancellation_ref": 9822,
+  "cancellation_date": "2014-01-01",
+  "amends_regn": {
+    "number": "50001",
+    "date": "2000-01-01"
+  }
 }

@@ -1,15 +1,15 @@
 {
-  "registration_no": 50015,
-  "debtor_name": {
+  "registration": {
+    "number": 50015,
+    "date": "2014-01-01"
+  },
+  "debtor_names": [ {
     "forename": ["Royal", "Wilma" ],
     "surname": "Keebler"
-  },
-  "debtor_alternative_name": [
-    {
+  }, {
       "forename": ["Royal"],
       "surname": "Keebler"
-    }
-  ],
+  } ],
   "registration_date": "2014-11-19",
   "application_ref": "4862823",
   "application_type": "WOB",
@@ -23,5 +23,7 @@
       ]
     }
   ],
-  "occupation": "Gamekeeper"
+  "occupation": "Gamekeeper",
+  "legal_body": "A Court",
+  "legal_body_ref": "123 of 2015"
 }
