@@ -1,17 +1,15 @@
 {
-  "registration_no": 50003,
-  "debtor_name": {
-    "forenames": [
-      "Eulah"
-    ],
-    "surname": "Beier"
+  "registration": {
+    "number": 50003,
+    "date": "2014-01-01"
   },
-  "debtor_alternative_name": [
-    {
+  "debtor_names": [ {
+    "forenames": [ "Eulah" ],
+    "surname": "Beier"
+  }, {
       "forenames": [ "Stefanie"],
       "surname": "Beier"
-    }
-  ],
+  }],
   "residence": [
     {
       "address_lines": [
@@ -27,5 +25,7 @@
   "application_ref": "9480896",
   "application_type": "PAB",
   "trading_name": "Matnix",
-  "occupation": "Dentist"
+  "occupation": "Dentist",
+  "legal_body": "A Court",
+  "legal_body_ref": "123 of 2015"
 }

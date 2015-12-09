@@ -5,7 +5,7 @@ import os
 from application.routes import app
 from application.utility import encode_name, address_to_string, residences_to_string
 from application.utility import name_to_string, occupation_string
-from application.listener import message_received, SynchroniserError, listen
+from application.listener import message_received, SynchroniserError, listen, compare_names
 import json
 
 # Can't use data from production system (non-public data); can't tell which pre-prod data is copied from production.
@@ -46,21 +46,21 @@ test_residence = {
 test_occupation = [
     {
         "input": {
-            "debtor_alternative_name": [],
+            "debtor_names": [],
             "occupation": "Anthropologist"
         },
         "expected": "(N/A) ANTHROPOLOGIST"
     },
     {
         "input": {
-            "debtor_alternative_name": [{"forenames": ["Robert"], "surname": "Howard"}],
+            "debtor_names": [{}, {"forenames": ["Robert"], "surname": "Howard"}],
             "occupation": "Civil Servant"
         },
         "expected": "(N/A) AKA ROBERT HOWARD CIVIL SERVANT"
     },
     {
         "input": {
-            "debtor_alternative_name": [{"forenames": ["Mo"], "surname": "O'Brien"}],
+            "debtor_names": [{}, {"forenames": ["Mo"], "surname": "O'Brien"}],
             "occupation": "Violinist",
             "trading_name": "Agent Candid"
         },
@@ -73,11 +73,43 @@ invalid_data = {
     "blah blah blah": "blah blah"
 }
 
+application_new_reg = {
+    'application': 'new',
+    'data': [{
+        'number': '50001',
+        'date': '2005-01-01'
+    }]
+}
+
+cancellation_reg = {
+    'application': 'cancel',
+    'data': [{
+        'number': '50002',
+        'date': '2005-01-01'
+    }]
+}
+
+amendment_reg = {
+    'application': 'amend',
+    'data': {
+        'new_registrations': [{
+            'number': '50001',
+            'date': '2001-01-01'
+        }],
+        'amended_registrations': [{
+            'number': '50002',
+            'date': '2001-02-01'
+        }]
+    }
+}
+
 directory = os.path.dirname(__file__)
 
 no_alias = json.loads(open(os.path.join(directory, 'data/50001.json'), 'r').read())
 has_trading = json.loads(open(os.path.join(directory, 'data/50003.json'), 'r').read())
 has_alias = json.loads(open(os.path.join(directory, 'data/50015.json'), 'r').read())
+cancelled = json.loads(open(os.path.join(directory, 'data/50002.json'), 'r').read())
+amended = json.loads(open(os.path.join(directory, 'data/50002.json'), 'r').read())
 
 no_alias_output = json.loads(open(os.path.join(directory, 'data/50001_converted.json'), 'r').read())
 has_trading_output = json.loads(open(os.path.join(directory, 'data/50003_converted.json'), 'r').read())
@@ -116,8 +148,8 @@ no_alias_resp = FakeResponse(no_alias, status_code=200)
 has_trading_resp = FakeResponse(has_trading, status_code=200)
 has_alias_resp = FakeResponse(has_alias, status_code=200)
 three_errors_resp = FakeResponse({"messages": 3}, status_code=200)
-
-
+cancelled_resp = FakeResponse(cancelled)
+amend_resp = FakeResponse(amended)
 # exception_data = {"error_message": "this failed", "exception_class": "Exception"}
 
 class TestSynchroniser:
@@ -177,70 +209,21 @@ class TestSynchroniser:
         output = occupation_string(test_occupation[2]["input"])
         assert output == test_occupation[2]["expected"]
 
-    @mock.patch('requests.get', return_value=no_alias_resp)
-    @mock.patch('requests.put', return_value=FakeResponse())
-    def test_convert_no_alias(self, mock_put, mock_get):
-        message_received([50000], FakeMessage())
-        onward_data = json.loads(mock_put.call_args[1]['data'])
-        assert onward_data['punctuation_code'] == no_alias_output['punctuation_code']
-        assert onward_data['address'] == no_alias_output['address']
-        assert onward_data['reverse_name'] == no_alias_output['reverse_name']
-        assert onward_data['occupation'] == no_alias_output['occupation']
-        assert onward_data['remainder_name'] == no_alias_output['remainder_name']
-        assert onward_data['registration_no'] == no_alias_output['registration_no']
-
-    @mock.patch('requests.get', return_value=has_alias_resp)
-    @mock.patch('requests.put', return_value=FakeResponse())
-    def test_convert_no_alias(self, mock_put, mock_get):
-        message_received([50000], FakeMessage())
-        onward_data = json.loads(mock_put.call_args[1]['data'])
-        assert onward_data['punctuation_code'] == has_alias_output['punctuation_code']
-        assert onward_data['address'] == has_alias_output['address']
-        assert onward_data['reverse_name'] == has_alias_output['reverse_name']
-        assert onward_data['occupation'] == has_alias_output['occupation']
-        assert onward_data['remainder_name'] == has_alias_output['remainder_name']
-        assert onward_data['registration_no'] == has_alias_output['registration_no']
-
     @mock.patch('requests.get', return_value=has_trading_resp)
+    @mock.patch('requests.post', return_value=FakeResponse())
     @mock.patch('requests.put', return_value=FakeResponse())
-    def test_convert_no_alias(self, mock_put, mock_get):
-        message_received([50000], FakeMessage())
-        onward_data = json.loads(mock_put.call_args[1]['data'])
+    def test_convert_no_alias(self, mock_put, mock_post, mock_get):
+        message_received(application_new_reg, FakeMessage())
+        onward_data = json.loads(mock_put.call_args_list[0][1]['data'])
+        onward_docs = json.loads(mock_put.call_args_list[1][1]['data'])
+
         assert onward_data['punctuation_code'] == has_trading_output['punctuation_code']
         assert onward_data['address'] == has_trading_output['address']
         assert onward_data['reverse_name'] == has_trading_output['reverse_name']
         assert onward_data['occupation'] == has_trading_output['occupation']
         assert onward_data['remainder_name'] == has_trading_output['remainder_name']
         assert onward_data['registration_no'] == has_trading_output['registration_no']
-
-    @mock.patch('requests.get', return_value=FakeResponse(status_code=500))
-    @mock.patch('requests.put', return_value=FakeResponse())
-    def test_error_get_failed(self, mock_put, mock_get):
-        with pytest.raises(SynchroniserError) as excinfo:
-            message_received([50000], FakeMessage())
-        assert excinfo.value.value[0]['status_code'] == 500
-        assert excinfo.value.value[0]['uri'] == '/registrations'
-        assert excinfo.value.value[0]['registration_no'] == 50000
-
-    @mock.patch('requests.get', return_value=has_trading_resp)
-    @mock.patch('requests.put', return_value=FakeResponse(status_code=500))
-    def test_error_put_failed(self, mock_put, mock_get):
-        with pytest.raises(SynchroniserError) as excinfo:
-            message_received([50000], FakeMessage())
-        assert excinfo.value.value[0]['status_code'] == 500
-        assert excinfo.value.value[0]['uri'] == '/land_charge'
-        assert excinfo.value.value[0]['registration_no'] == 50000
-
-    @mock.patch('requests.get', side_effect=Exception('Fail'))
-    @mock.patch('requests.put', return_value=FakeResponse())
-    def test_generic_exceptipn(self, mock_put, mock_get):
-        # Test ensures that exceptions are trapped and their data is wrapped up
-        # to be raised back to the main loop.
-        with pytest.raises(SynchroniserError) as excinfo:
-            message_received([50000], FakeMessage())
-        assert excinfo.value.value[0]['registration_no'] == 50000
-        assert excinfo.value.value[0]['error_message'] == "Fail"
-        assert excinfo.value.value[0]['exception_class'] == "Exception"
+        assert onward_docs['reg_no'] == '50001'
 
     @mock.patch('kombu.Producer.publish')
     def test_exception_handled(self, mock_publish):
@@ -255,3 +238,45 @@ class TestSynchroniser:
     def test_app_root(self):
         response = self.app.get('/')
         assert response.status_code == 200
+
+    @mock.patch('requests.get', return_value=cancelled_resp)
+    @mock.patch('requests.post', return_value=FakeResponse())
+    @mock.patch('requests.put', return_value=FakeResponse())
+    def test_cancellation_application(self, mock_put, mock_post, mock_get):
+        message_received(cancellation_reg, FakeMessage())
+        cancel = json.loads(mock_post.call_args_list[0][1]['data'])
+        assert cancel['reg_no'] == 50001
+        assert cancel['template'] == 'Cancellation'
+
+    def test_compare_names_ok(self):
+        name1 = [{
+            'forenames': ['Bob', 'Oscar'],
+            'surname': 'Howard'
+        }]
+
+        name2 = [{
+            'surname': 'Howard',
+            'forenames': ['Bob', 'Oscar']
+        }]
+        assert compare_names(name1, name2) == True
+
+    def test_compare_names_not_ok(self):
+        name1 = [{
+            'forenames': ['Bob', 'Francis'],
+            'surname': 'Howard'
+        }]
+
+        name2 = [{
+            'surname': 'Howard',
+            'forenames': ['Bob', 'Oscar']
+        }]
+        assert compare_names(name1, name2) == False
+
+    @mock.patch('requests.get', return_value=amend_resp)
+    @mock.patch('requests.post', return_value=FakeResponse())
+    @mock.patch('requests.put', return_value=FakeResponse())
+    def test_amendment_application(self, mock_put, mock_post, mock_get):
+        message_received(amendment_reg, FakeMessage())
+        amend = json.loads(mock_post.call_args_list[0][1]['data'])
+        assert amend['reg_no'] == '50001'
+        assert amend['template'] == 'Amend PAB'
