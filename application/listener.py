@@ -40,6 +40,14 @@ def create_legacy_data(data):
         'priority_notice_ref': ''
     }
 
+    # if 'lc_register_details' in data:
+    # names = [insert_name(cursor, data['lc_register_details']['estate_owner'], party_id)]
+    # <option value="privateIndividual">Private individual</option>
+    # <option value="limitedCompany">Limited company</option>
+    # <option value="localAuthority">Local authority</option>
+    # <option value="complexName">Complex name</option>
+    # <option value="other">Other</option>
+
 
 def get_registration(number, year):
     response = requests.get(app.config['REGISTER_URI'] + '/registrations/' + str(number), params={'year': year})
