@@ -17,7 +17,7 @@ class SynchroniserError(Exception):
 
 
 def create_legacy_data(data):
-    app_type = data['application_type']
+    app_type = data['class_of_charge']
     encoded_debtor_name = encode_name(data['debtor_names'][0])
     return {
         'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
@@ -59,7 +59,7 @@ def get_registration(number, year):
 def create_cancellation_history(body, regn):
     print(body)
     print(regn)
-    class_of_charge = re.sub("\(|\)", "", regn['application_type'])
+    class_of_charge = re.sub("\(|\)", "", regn['class_of_charge'])
     cancellation = {
         'class': class_of_charge,
         'reg_no': regn['registration']['number'],
@@ -71,14 +71,14 @@ def create_cancellation_history(body, regn):
         )
     }
 
-    uri = '/history_notes/{}/{}/{}'.format(regn['registration']['number'], regn['cancellation_date'], regn['application_type'])
+    uri = '/history_notes/{}/{}/{}'.format(regn['registration']['number'], regn['cancellation_date'], regn['class_of_charge'])
     response = requests.post(app.config['LEGACY_DB_URI'] + uri, data=json.dumps(cancellation), headers={'Content-Type': 'application/json'})
     logging.info('POST %s - %d', uri, response.status_code)
     return response.status_code
 
 
 def create_amendment_history(regn):
-    class_of_charge = re.sub("\(|\)", "", regn['application_type'])
+    class_of_charge = re.sub("\(|\)", "", regn['class_of_charge'])
     template = 'Amend ' + class_of_charge
 
     amendment = {
@@ -95,7 +95,7 @@ def create_amendment_history(regn):
         )
     }
 
-    uri = '/history_notes/{}/{}/{}'.format(regn['amends_regn']['number'], regn['amends_regn']['date'], regn['application_type'])
+    uri = '/history_notes/{}/{}/{}'.format(regn['amends_regn']['number'], regn['amends_regn']['date'], regn['class_of_charge'])
     response = requests.post(app.config['LEGACY_DB_URI'] + uri, data=json.dumps(amendment), headers={'Content-Type': 'application/json'})
     logging.info('POST %s - %s', uri, response.status_code)
     return response.status_code
@@ -131,16 +131,16 @@ def receive_new_regs(errors, body):
                     "registration_no": number
                 })
 
-            coc = body['application_type']
+            coc = body['class_of_charge']
             create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
 
 
 def create_document_row(resource, reg_no, reg_date, body, app_type):
     doc_row = {
-        'class': body['application_type'],
+        'class': body['class_of_charge'],
         'reg_no': reg_no,
         'date': reg_date,
-        'orig_class': body['application_type'],
+        'orig_class': body['class_of_charge'],
         'orig_no': body['registration']['number'],
         'orig_date': body['registration']['date'],
         'canc_ind': '',
@@ -166,7 +166,7 @@ def receive_cancellation(errors, body):
             regn = response.json()
             resource = "/{}/{}/{}".format(regn['registration']['number'],
                                           regn['registration']['date'],
-                                          regn['application_type'])
+                                          regn['class_of_charge'])
 
             # TODO: consider what happens when cancelling an entry that has pre-existing rows
             # under a different registration number?
@@ -223,7 +223,7 @@ def receive_amendment(errors, body):
             logging.info('names match')
             requests.delete(app.config['LEGACY_DB_URI'] + '/land_charges/{}/{}/{}'.format(oregn['registration']['number'],
                                                                                           oregn['registration']['date'],
-                                                                                          oregn['application_type']))
+                                                                                          oregn['class_of_charge']))
         logging.info('HERE')
         converted = create_legacy_data(regn)
         requests.put(app.config['LEGACY_DB_URI'] + '/land_charges',
@@ -232,7 +232,7 @@ def receive_amendment(errors, body):
         create_amendment_history(regn)
         res = '/{}/{}/{}'.format(regn['registration']['number'],
                                  regn['registration']['date'],
-                                 regn['application_type'])
+                                 regn['class_of_charge'])
         create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, 'AM')
 
 
