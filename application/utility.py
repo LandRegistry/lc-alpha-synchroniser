@@ -63,9 +63,17 @@ def name_to_string(name):
 def occupation_string(data):
     # ("(N/A) <AKA foo>+ [T/A <trading name> AS]? <occupation>")
     n_a = "(N/A)"
+    names = []
+
+    # Should not be able to get this far and have one or the other of these blocks be true
+    if 'debtor_names' in data:
+        names = data['debtor_names']
+
+    if 'estate_owner' in data and data['estate_owner_ind'] == 'Private Individual':
+        names = [data['estate_owner']['private']]
 
     alias_names = ""
-    for name in data['debtor_names'][1:]:
+    for name in names:
         alias_names += " " + name_to_string(name)
 
     if alias_names != "":

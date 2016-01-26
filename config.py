@@ -2,6 +2,7 @@
 
 class Config(object):
     DEBUG = False
+    APPLICATION_NAME = "lc-synchroniser"
 
 
 class DevelopmentConfig(Config):

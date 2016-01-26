@@ -1,3 +1,18 @@
-from application.routes import app
+import config
+import importlib
+import os
+from application.listener import synchronise
+from log.logger import setup_logging
 
-app.run(debug=True, use_reloader=True, host="0.0.0.0", port=5008)
+cfg = os.getenv('SETTINGS', 'DevelopmentConfig')
+c = getattr(importlib.import_module('config'), cfg)
+config = {}
+
+for key in dir(c):
+    if key.isupper():
+        config[key] = getattr(c, key)
+
+setup_logging(config)
+synchronise(config)
+
+
