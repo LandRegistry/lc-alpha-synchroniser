@@ -2,10 +2,10 @@
 from application.utility import encode_name, occupation_string, residences_to_string
 import requests
 import json
-import datetime
 import kombu
 import logging
 import re
+from datetime import datetime
 import traceback
 
 
@@ -25,7 +25,7 @@ def create_legacy_data(data):
     app_type = data['class_of_charge']
 
     legacy_object = {
-        'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
+        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
         'registration_no': str(data['registration']['number']).rjust(8),
         'priority_notice': '',
         'property_county': 255,  # Always 255 for a bankruptcy.
@@ -303,42 +303,14 @@ def receive_amendment(body):
 
 
 def get_entries_for_sync():
-    return [{
-        'application': 'new',
-        'data': [
-            {'number': 1002, 'date': '2016-01-26', 'county': 'Devon'},
-            {'number': 1003, 'date': '2016-01-26', 'county': 'Buckinghamshire'}
-        ]
-    }, {
-        'application': 'new',
-        "data": [{
-            "county": "Devon",
-            "number": 1000,
-            "date": "2016-01-26"
-        },
-        {
-            "county": "Buckinghamshire",
-            "number": 1001,
-            "date": "2016-01-26"
-        }
-        ],
-        "request_id": 573
-    }]
-        # ,
-        # {
-        # 'application': 'new',
-        # 'data': [{
-        #     "surname": "Howard",
-        #     "forenames": ["Bob", "Oscar", "Francis"],
-        #     "date": "2016-01-01",
-        #     "number": 1010
-        # }, {
-        #     "surname": "Howard",
-        #     "forenames": ["Robert"],
-        #     "date": "2016-01-01",
-        #     "number": 1011
-        # }]
-    #}]
+    date = datetime.now().strftime('%Y-%m-%d')
+    url = CONFIG['REGISTER_URI'] + '/registrations/' + date
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code != 404:
+        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+    return []
 
 
 def synchronise(config):
