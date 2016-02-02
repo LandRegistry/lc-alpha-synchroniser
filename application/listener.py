@@ -168,8 +168,11 @@ def get_registration(number, year):
 
 def receive_new_regs(body):
     for application in body['data']:
+        
+    
         number = application['number']
         date = application['date']
+        logging.info("-----------------------------------------------")
         logging.info("Process registration %d/%s", number, date)
 
         response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number))
@@ -190,28 +193,48 @@ def receive_new_regs(body):
                 raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
                                         put_response.status_code, number, date))
 
-            coc = body['class_of_charge']
+            coc = class_to_numeric(body['class_of_charge'])
             create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
 
 
+def class_to_numeric(coc):
+    classes = {
+        'C(I)': 'C1',
+        'C(II)': 'C2',
+        'C(III)': 'C3',
+        'C(IV)': 'C4',
+        'D(I)': 'D1',
+        'D(II)': 'D2',
+        'D(III)': 'D3'
+    }
+    
+    if coc in classes:
+        return classes[coc]
+    else:
+        return coc
+
+
+            
 def create_document_row(resource, reg_no, reg_date, body, app_type):
     doc_row = {
-        'class': body['class_of_charge'],
+        'class': class_to_numeric(body['class_of_charge']),
         'reg_no': str(reg_no),
         'date': reg_date,
-        'orig_class': body['class_of_charge'],
-        'orig_no': body['registration']['number'],
+        'orig_class': class_to_numeric(body['class_of_charge']),
+        'orig_number': body['registration']['number'],
         'orig_date': body['registration']['date'],
         'canc_ind': '',
         'app_type': app_type
     }
     url = CONFIG['LEGACY_DB_URI'] + '/doc_info' + resource
+    
+    logging.debug(json.dumps(doc_row))
     put = requests.put(url,
                        data=json.dumps(doc_row),
                        headers={'Content-Type': 'application/json'})
     logging.info('PUT %s - %s', url, str(put.status_code))
     if put.status_code != 200:
-        raise SynchroniserError('POST /doc_info - ' + str(put.status_code))
+        raise SynchroniserError('PUT /doc_info - ' + str(put.status_code))
 
 
 def receive_cancellation(body):
@@ -226,7 +249,7 @@ def receive_cancellation(body):
             regn = response.json()
             resource = "/{}/{}/{}".format(regn['registration']['number'],
                                           regn['registration']['date'],
-                                          regn['class_of_charge'])
+                                          class_to_numeric(regn['class_of_charge']))
 
             # TODO: consider what happens when cancelling an entry that has pre-existing rows
             # under a different registration number?
@@ -292,7 +315,7 @@ def receive_amendment(body):
         #create_amendment_history(regn)
         res = '/{}/{}/{}'.format(regn['registration']['number'],
                                  regn['registration']['date'],
-                                 regn['class_of_charge'])
+                                 class_to_numeric(regn['class_of_charge']))
         create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, 'AM')
 
 
@@ -306,24 +329,25 @@ def get_entries_for_sync():
     return [{
         'application': 'new',
         'data': [
-            {'number': 1002, 'date': '2016-01-26', 'county': 'Devon'},
+      #      {'number': 1002, 'date': '2016-01-26', 'county': 'Devon'},
             {'number': 1003, 'date': '2016-01-26', 'county': 'Buckinghamshire'}
         ]
-    }, {
-        'application': 'new',
-        "data": [{
-            "county": "Devon",
-            "number": 1000,
-            "date": "2016-01-26"
-        },
-        {
-            "county": "Buckinghamshire",
-            "number": 1001,
-            "date": "2016-01-26"
-        }
-        ],
-        "request_id": 573
     }]
+    # , {
+        # 'application': 'new',
+        # "data": [{
+            # "county": "Devon",
+            # "number": 1000,
+            # "date": "2016-01-26"
+        # },
+        # {
+            # "county": "Buckinghamshire",
+            # "number": 1001,
+            # "date": "2016-01-26"
+        # }
+        # ]
+    # }
+    # ]
         # ,
         # {
         # 'application': 'new',
@@ -331,12 +355,12 @@ def get_entries_for_sync():
         #     "surname": "Howard",
         #     "forenames": ["Bob", "Oscar", "Francis"],
         #     "date": "2016-01-01",
-        #     "number": 1010
+        #     "number": 1004
         # }, {
         #     "surname": "Howard",
         #     "forenames": ["Robert"],
         #     "date": "2016-01-01",
-        #     "number": 1011
+        #     "number": 1005
         # }]
     #}]
 
