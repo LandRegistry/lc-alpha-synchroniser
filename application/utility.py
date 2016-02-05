@@ -46,8 +46,8 @@ def encode_name(pi_name):
 def translate_non_pi_name(name):
     no_space = name.replace(" ", "").upper()
     return {
-        'reverse_name': no_space[:11],
-        'remainder': no_space[11:],
+        'coded_name': no_space[:11],
+        'remainder_name': no_space[11:],
         'name': name.upper(),
         'hex_code': ''
     }

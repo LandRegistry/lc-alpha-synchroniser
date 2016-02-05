@@ -55,11 +55,17 @@ def create_legacy_data(data):
         legacy_object['parish_district'] = ''
         legacy_object['property'] = ''
         legacy_object['amendment_info'] = get_amendment_text(data)
-
+    elif data['class_of_charge'] in ['PA', 'WO']:
+        legacy_object['address'] = ''
+        legacy_object['property_county'] = ""
+        legacy_object['counties'] = data['particulars']['counties'][0].upper()
+        legacy_object['parish_district'] = data['particulars']['district']
+        legacy_object['property'] = data['particulars']['description']
+        legacy_object['amendment_info'] = ''
     else:
         legacy_object['address'] = ''
-        legacy_object['property_county'] = data['particulars']['counties'][0]  # TODO: handle get ID in leg-adapter
-        legacy_object['counties'] = data['particulars']['counties'][0]
+        legacy_object['property_county'] = data['particulars']['counties'][0].upper()
+        legacy_object['counties'] = ''
         legacy_object['parish_district'] = data['particulars']['district']
         legacy_object['property'] = data['particulars']['description']
         legacy_object['amendment_info'] = ''
@@ -110,7 +116,7 @@ def create_legacy_data(data):
 
     legacy_object['reverse_name'] = encoded_name['coded_name']
     legacy_object['remainder_name'] = encoded_name['remainder_name']
-    legacy_object['hex_code'] = encoded_name['hex_code']
+    legacy_object['punctuation_code'] = encoded_name['hex_code']
     legacy_object['occupation'] = occupation
     legacy_object['append_with_hex'] = hex_append
     legacy_object['name'] = encoded_name['name']
@@ -142,9 +148,7 @@ def receive_new_regs(body):
             body = response.json()
             converted = create_legacy_data(body)
 
-            logging.info('PUT ' + json.dumps(converted))
-            put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
-                                        data=json.dumps(converted), headers={'Content-Type': 'application/json'})
+            put_response = create_lc_row(converted)
             if put_response.status_code == 200:
                 logging.debug('PUT /land_charges - OK')
             else:
@@ -154,6 +158,13 @@ def receive_new_regs(body):
 
             coc = class_to_numeric(body['class_of_charge'])
             create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
+
+
+def create_lc_row(converted):
+    logging.info('PUT ' + json.dumps(converted))
+    put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
+                                  data=json.dumps(converted), headers={'Content-Type': 'application/json'})
+    return put_response
 
             
 def create_document_row(resource, reg_no, reg_date, body, app_type):
@@ -165,7 +176,7 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
         'orig_number': body['registration']['number'],
         'orig_date': body['registration']['date'],
         'canc_ind': '',
-        'app_type': app_type
+        'type': app_type
     }
     url = CONFIG['LEGACY_DB_URI'] + '/doc_info' + resource
     
@@ -176,6 +187,7 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
     logging.info('PUT %s - %s', url, str(put.status_code))
     if put.status_code != 200:
         raise SynchroniserError('PUT /doc_info - ' + str(put.status_code))
+    return put
 
 
 def receive_cancellation(body):
@@ -255,6 +267,16 @@ def get_entries_for_sync():
     elif response.status_code != 404:
         raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
     return []
+    # return [{
+        # "application": "new",
+        # "data": [
+            # {
+                # "number": 1000,
+                # "date": "2016-02-05"
+            # }
+        # ],
+        # "id": 4245
+    # }]
 
 
 def synchronise(config):
@@ -268,8 +290,9 @@ def synchronise(config):
 
     entries = get_entries_for_sync()
     logging.info("Synchroniser starts")
-    logging.info("Entries received")
+    logging.info("%d Entries received", len(entries))
 
+    there_were_errors = False
     for entry in entries:
         logging.info("Process {}".format(entry['application']))
         try:
@@ -284,6 +307,7 @@ def synchronise(config):
 
         # pylint: disable=broad-except
         except Exception as exception:
+            there_were_errors = True
             logging.error('Unhandled error: %s', str(exception))
             s = log_stack()
             raise_error(producer, {
@@ -293,6 +317,8 @@ def synchronise(config):
                 "type": "E"
             })
     logging.info("Synchroniser finishes")
+    if there_were_errors:
+        logging.error("There were errors")
 
 
 def log_stack():
