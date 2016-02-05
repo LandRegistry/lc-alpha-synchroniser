@@ -1,5 +1,6 @@
 #from application.routes import app
-from application.utility import encode_name, occupation_string, residences_to_string
+from application.utility import encode_name, occupation_string, residences_to_string, get_amendment_text, \
+    class_to_numeric, translate_non_pi_name, compare_names
 import requests
 import json
 import kombu
@@ -21,97 +22,99 @@ class SynchroniserError(Exception):
         return repr(self.value)
 
 
+def get_eo_party(data):
+    if data['class_of_charge'] in ['WOB', 'PAB']:
+        lookfor = 'Debtor'
+    else:
+        lookfor = 'Estate Owner'
+
+    for party in data['parties']:
+        if party['type'] == lookfor:
+            return party
+
+    raise SynchroniserError("Unable to find EO Name")
+
+
 def create_legacy_data(data):
     app_type = data['class_of_charge']
 
     legacy_object = {
         'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
         'registration_no': str(data['registration']['number']).rjust(8),
-        'priority_notice': '',
-        'property_county': 255,  # Always 255 for a bankruptcy.
-                    # TODO: sort out county thing
+        'priority_notice': '',  # TODO: Priority Notice
         'registration_date': data['registration']['date'],
         'class_type': app_type,
-        'name': '',
-        'address': residences_to_string(data).upper(),
-        'counties': '',
-        'amendment_info': data['legal_body'] + ' ' + data['legal_body_ref'],
-        'property': '',
-        'parish_district': '',
         'priority_notice_ref': ''
     }
 
-    # if "class_of_charge" in ['PA(B)', 'WO(B)']:
-    if 'debtor_names' in data:  # Simple name, bankruptcy
-        encoded_debtor_name = encode_name(data['debtor_names'][0])
-        legacy_object['reverse_name'] = encoded_debtor_name['coded_name']
-        legacy_object['remainder_name'] = encoded_debtor_name['remainder_name']
-        legacy_object['punctuation_code'] = encoded_debtor_name['hex_code']
-        legacy_object['occupation'] = occupation_string(data).upper()
-        legacy_object['append_with_hex'] = ""
+    eo_party = get_eo_party(data)
+    if data['class_of_charge'] in ['PAB', 'WOB']:
+        legacy_object['address'] = residences_to_string(eo_party)
+        legacy_object['property_county'] = ''
+        legacy_object['counties'] = ''
+        legacy_object['parish_district'] = ''
+        legacy_object['property'] = ''
+        legacy_object['amendment_info'] = get_amendment_text(data)
 
-    elif 'estate_owner' in data and data['estate_owner_ind'] == 'Private Individual':
-        encoded_debtor_name = encode_name({
-            'forenames': data['estate_owner']['private']['forenames'],
-            'surname': data['estate_owner']['private']['surname']
-        })
-        legacy_object['reverse_name'] = encoded_debtor_name['coded_name']
-        legacy_object['remainder_name'] = encoded_debtor_name['remainder_name']
-        legacy_object['punctuation_code'] = encoded_debtor_name['hex_code']
-        legacy_object['occupation'] = occupation_string(data).upper()
-        legacy_object['append_with_hex'] = ""
+    else:
+        legacy_object['address'] = ''
+        legacy_object['property_county'] = data['particulars']['counties'][0]  # TODO: handle get ID in leg-adapter
+        legacy_object['counties'] = data['particulars']['counties'][0]
+        legacy_object['parish_district'] = data['particulars']['district']
+        legacy_object['property'] = data['particulars']['description']
+        legacy_object['amendment_info'] = ''
 
-    elif 'estate_owner' in data:
-        legacy_object['occupation'] = ""
-        legacy_object['punctuation_code'] = ""
+    # Only sync the top name/county...
+    eo_name = eo_party['names'][0]
 
-        if data['estate_owner_ind'] == 'County Council':
-            encoded = translate_non_pi_name(data['estate_owner']['local']['name'])
-            legacy_object['append_with_hex'] = "01"
+    if eo_name['type'] == 'Private Individual':
+        encoded_name = encode_name(eo_name)
+        occupation = occupation_string(eo_party)
+        hex_append = ''
 
-        elif data['estate_owner_ind'] == 'Parish Council':
-            encoded = translate_non_pi_name(data['estate_owner']['local']['name'])
-            legacy_object['append_with_hex'] = "04"
+    elif eo_name['type'] == 'County Council':
+        encoded_name = translate_non_pi_name(eo_name['local']['name'])
+        hex_append = "01"
+        occupation = ''
 
-        elif data['estate_owner_ind'] == 'Other Council':
-            encoded = translate_non_pi_name(data['estate_owner']['local']['name'])
-            legacy_object['append_with_hex'] = "08"
+    elif eo_name['type'] == 'Parish Council':
+        encoded_name = translate_non_pi_name(eo_name['local']['name'])
+        hex_append = "04"
+        occupation = ''
 
-        elif data['estate_owner_ind'] == 'Development Corporation':
-            encoded = translate_non_pi_name(data['estate_owner']['other'])
-            legacy_object['append_with_hex'] = "16"
+    elif eo_name['type'] == 'Other Council':
+        encoded_name = translate_non_pi_name(eo_name['local']['name'])
+        hex_append = "08"
+        occupation = ''
 
-        elif data['estate_owner_ind'] == 'Limited Company':
-            encoded = translate_non_pi_name(data['estate_owner']['company'])
-            legacy_object['append_with_hex'] = "F1"
+    elif eo_name['type'] == 'Development Corporation':
+        encoded_name = translate_non_pi_name(eo_name['other'])
+        hex_append = "16"
+        occupation = ''
 
-        elif data['estate_owner_ind'] == 'Complex Name':
-            raise NotImplementedError("Complex Names")
+    elif eo_name['type'] == 'Limited Company':
+        encoded_name = translate_non_pi_name(eo_name['company'])
+        hex_append = "F1"
+        occupation = ''
 
-        elif data['estate_owner_ind'] == 'Other':
-            encoded = translate_non_pi_name(data['estate_owner']['other'])
-            legacy_object['append_with_hex'] = "F2"
+    elif data['estate_owner_ind'] == 'Complex Name':
+        raise NotImplementedError("Complex Names")
 
-        elif data['estate_owner_ind'] == 'Private Individual':
-            raise SynchroniserError("How on Earth does the execution get here?")
+    elif data['estate_owner_ind'] == 'Other':
+        encoded_name = translate_non_pi_name(eo_name['other'])
+        hex_append = "F2"
+        occupation = ''
 
-        else:
-            raise SynchroniserError("Unknown estate_owner_ind: {}".format(data['estate_owner_ind']))
+    else:
+        raise SynchroniserError("Unknown name type: {}".format(eo_name['type']))
 
-        legacy_object['reverse_name'] = encoded['reverse_name']
-        legacy_object['remainder_name'] = encoded['remainder']
-        legacy_object['name'] = encoded['name']
-
+    legacy_object['reverse_name'] = encoded_name['coded_name']
+    legacy_object['remainder_name'] = encoded_name['remainder_name']
+    legacy_object['hex_code'] = encoded_name['hex_code']
+    legacy_object['occupation'] = occupation
+    legacy_object['append_with_hex'] = hex_append
+    legacy_object['name'] = encoded_name['name']
     return legacy_object
-
-
-def translate_non_pi_name(name):
-    no_space = name.replace(" ", "").upper()
-    return {
-        'reverse_name': no_space[:11],
-        'remainder': no_space[11:],
-        'name': name.upper()
-    }
 
 
 def get_registration(number, year):
@@ -121,55 +124,9 @@ def get_registration(number, year):
     return response.json()
 
 
-# def create_cancellation_history(body, regn):
-#     print(body)
-#     print(regn)
-#     class_of_charge = re.sub("\(|\)", "", regn['class_of_charge'])
-#     cancellation = {
-#         'class': class_of_charge,
-#         'reg_no': regn['registration']['number'],
-#         'date': regn['registration']['date'],
-#         'template': 'Cancellation',
-#         'text': 'Cancelled by Land Charge reference number(s) {}, on {}'.format(
-#             regn['cancellation_ref'],
-#             regn['cancellation_date']  # TODO - needs translation???
-#         )
-#     }
-#
-#     uri = '/history_notes/{}/{}/{}'.format(regn['registration']['number'], regn['cancellation_date'], regn['class_of_charge'])
-#     response = requests.post(CONFIG['LEGACY_DB_URI'] + uri, data=json.dumps(cancellation), headers={'Content-Type': 'application/json'})
-#     logging.info('POST %s - %d', uri, response.status_code)
-#     return response.status_code
-
-
-# def create_amendment_history(regn):
-#     class_of_charge = re.sub("\(|\)", "", regn['class_of_charge'])
-#     template = 'Amend ' + class_of_charge
-#
-#     amendment = {
-#         'class': class_of_charge,
-#         'reg_no': regn['amends_regn']['number'],
-#         'date': regn['amends_regn']['date'],
-#         'template': template,
-#         'text': 'Please note that the registration number {}, dated {}, has been amended by Land Charge '
-#                 'reference number(s) {}, dated {}. Copies of these registrations are enclosed.'.format(
-#             regn['amends_regn']['number'],
-#             regn['amends_regn']['date'],
-#             regn['registration']['number'],
-#             regn['registration']['date']
-#         )
-#     }
-#
-#     uri = '/history_notes/{}/{}/{}'.format(regn['amends_regn']['number'], regn['amends_regn']['date'], regn['class_of_charge'])
-#     response = requests.post(CONFIG['LEGACY_DB_URI'] + uri, data=json.dumps(amendment), headers={'Content-Type': 'application/json'})
-#     logging.info('POST %s - %s', uri, response.status_code)
-#     return response.status_code
-
-
 def receive_new_regs(body):
     for application in body['data']:
-        
-    
+
         number = application['number']
         date = application['date']
         logging.info("-----------------------------------------------")
@@ -185,34 +142,18 @@ def receive_new_regs(body):
             body = response.json()
             converted = create_legacy_data(body)
 
+            logging.info('PUT ' + json.dumps(converted))
             put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
                                         data=json.dumps(converted), headers={'Content-Type': 'application/json'})
             if put_response.status_code == 200:
                 logging.debug('PUT /land_charges - OK')
             else:
+                # TODO: this causes the loop to break. Which is bad.
                 raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
                                         put_response.status_code, number, date))
 
             coc = class_to_numeric(body['class_of_charge'])
             create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
-
-
-def class_to_numeric(coc):
-    classes = {
-        'C(I)': 'C1',
-        'C(II)': 'C2',
-        'C(III)': 'C3',
-        'C(IV)': 'C4',
-        'D(I)': 'D1',
-        'D(II)': 'D2',
-        'D(III)': 'D3'
-    }
-    
-    if coc in classes:
-        return classes[coc]
-    else:
-        return coc
-
 
             
 def create_document_row(resource, reg_no, reg_date, body, app_type):
@@ -259,26 +200,6 @@ def receive_cancellation(body):
                 raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
             #create_cancellation_history(body, regn)
             create_document_row(resource, regn['cancellation_ref'], regn['cancellation_date'], regn, 'CN')
-
-
-def compare_names(names1, names2):
-    if len(names1) != len(names2):
-        return False
-
-    for x in range(len(names1)):
-        a = names1[x]
-        b = names2[x]
-        if len(a['forenames']) != len(b['forenames']):
-            return False
-
-        if a['surname'] != b['surname']:
-            return False
-
-        for y in range(len(a['forenames'])):
-            if a['forenames'][y] != b['forenames'][y]:
-                return False
-
-    return True
 
 
 def receive_amendment(body):
@@ -373,40 +294,6 @@ def synchronise(config):
             })
     logging.info("Synchroniser finishes")
 
-# def message_received(body, message):
-#     logging.info("Received new message: %s", str(body))
-#
-#     errors = []
-#     try:
-#         if body['application'] == 'new':
-#             receive_new_regs(errors, body)
-#         elif body['application'] == 'cancel':
-#             receive_cancellation(errors, body)
-#         elif body['application'] == 'amend':
-#             receive_amendment(errors, body)
-#         else:
-#             logging.error('Unknown application type: %s', body['application'])
-#             errors.append({
-#                 'message': 'Unknown application type {}'.format(body['application'])
-#             })
-#     # pylint: disable=broad-except
-#     except Exception as exception:
-#         logging.error('Unhandled error: %s', str(exception))
-#         s = log_stack()
-#         errors.append({
-#             "message": str(exception),
-#             "stack": s,
-#             "subsystem": CONFIG['APPLICATION_NAME'],
-#             "type": "E"
-#             # "message": body,
-#             # "exception_class": type(exception).__name__,
-#             # "error_message": str(exception)
-#         })
-#
-#     message.ack()
-#     if len(errors) > 0:
-#         raise SynchroniserError(errors)
-
 
 def log_stack():
     call_stack = traceback.format_exc()
@@ -420,21 +307,3 @@ def log_stack():
 def raise_error(producer, error):
     producer.put(error)
     logging.warning('Error successfully raised.')
-
-
-# def listen(incoming_connection, error_producer, run_forever=True):
-#     logging.info('Listening for new registrations')
-#
-#     while True:
-#         try:
-#             incoming_connection.drain_events()
-#         except SynchroniserError as exception:
-#             for error in exception.value:
-#                 error_producer.put(error)
-#             logging.info("Error published")
-#         except KeyboardInterrupt:
-#             logging.info("Interrupted")
-#             break
-#
-#         if not run_forever:
-#             break
