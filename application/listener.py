@@ -214,29 +214,36 @@ def receive_cancellation(body):
             create_document_row(resource, regn['cancellation_ref'], regn['cancellation_date'], regn, 'CN')
 
 
-def receive_amendment(body):
-    new_regs = body['data']['new_registrations']
-    old_regs = body['data']['amended_registrations']
-    if len(new_regs) != len(old_regs):
-        logging.error('Length mismatch')
-        raise SynchroniserError('Length mismatch')
+def get_amendment_type(new_reg):
+    type_of_amend = {
+        'Rectification': 'RC'
+    }
 
-    for x in range(len(new_regs)):
-        old_reg = old_regs[x]
-        new_reg = new_regs[x]
+    r_code = new_reg['amends_registration']['type']
+    if r_code in type_of_amend:
+        return type_of_amend[r_code]
+    else:
+        raise SynchroniserError("Unknown amendment type: {}".format(r_code))
+
+
+def receive_amendment(body):
+    logging.debug(body)
+    for new_reg in body['data']:
+        new_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + new_reg['date'] + '/' + str(new_reg['number']))
+        regn = new_get.json()
+
+        logging.debug(regn)
+        old_reg = {
+            'number': regn['amends_registration']['number'],
+            'date': regn['amends_registration']['date']
+        }
+
         logging.info(old_reg)
         logging.info(new_reg)
         old_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + old_reg['date'] + '/' + str(old_reg['number']))
-        new_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + new_reg['date'] + '/' + str(new_reg['number']))
+
         oregn = old_get.json()
-        regn = new_get.json()
-        # resource = "/{}/{}/{}".format(regn['registration']['number'],
-        #                               regn['registration']['date'],
-        #                               regn['application_type'])
-        # update or replace LC row?
-        if compare_names(oregn['debtor_names'], regn['debtor_names']):
-            # names match... replace old entry
-            logging.info('names match')
+        if not oregn['revealed']:
             requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges/{}/{}/{}'.format(oregn['registration']['number'],
                                                                                       oregn['registration']['date'],
                                                                                       oregn['class_of_charge']))
@@ -245,17 +252,12 @@ def receive_amendment(body):
         requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
                      data=json.dumps(converted), headers={'Content-Type': 'application/json'})
 
-        #create_amendment_history(regn)
         res = '/{}/{}/{}'.format(regn['registration']['number'],
                                  regn['registration']['date'],
                                  class_to_numeric(regn['class_of_charge']))
-        create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, 'AM')
 
-
-    # Update row on land_charges
-    # Write out endorsement
-    # Add entry to doc_info (assume changed reg no?)
-    pass
+        a_type = get_amendment_type(regn)
+        create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, a_type)
 
 
 def get_entries_for_sync():
