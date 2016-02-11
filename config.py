@@ -9,6 +9,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     REGISTER_URI = "http://localhost:5004"
     LEGACY_DB_URI = "http://localhost:5007"
+    CASEWORK_API_URI = "http://localhost:5006"
     MQ_USERNAME = "mquser"
     MQ_PASSWORD = "mqpassword"
     MQ_HOSTNAME = "localhost"
@@ -18,6 +19,7 @@ class DevelopmentConfig(Config):
 class PreviewConfig(Config):
     REGISTER_URI = "http://localhost:5004"
     LEGACY_DB_URI = "http://localhost:5007"
+    CASEWORK_API_URI = "http://localhost:5006"
     MQ_USERNAME = "mquser"
     MQ_PASSWORD = "mqpassword"
     MQ_HOSTNAME = "localhost"

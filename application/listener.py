@@ -130,11 +130,52 @@ def get_registration(number, year):
     return response.json()
 
 
+def move_images(number, date):
+    uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
+    doc_response = requests.get(uri)
+    if doc_response.status_code != 200:
+        raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
+
+    document = doc_response.json()
+
+    uri = '{}/forms/{}'.format(CONFIG['CASEWORK_API_URI'], document['document_id'])
+    form_response = requests.get(uri)
+
+    if form_response.status_code != 200:
+        raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
+
+    form = form_response.json()
+    for image in form['images']:
+        uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], image)
+        image_response = requests.get(uri)
+
+        if image_response.status_code != 200:
+            raise SynchroniserError(uri + ' - ' + str(image_response.status_code))
+
+        content_type = image_response.headers['Content-Type']
+        bin_data = image_response.content
+
+        # Right, now post that to the main database
+        uri = "{}/images/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], date, number, image)
+        archive_response = requests.put(uri, data=bin_data, headers={'Content-Type': content_type})
+        if archive_response.status_code != 201:
+            raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
+
+    # If we've got here, then its on the legacy DB
+    uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
+    del_response = requests.delete(uri)
+    if del_response.status_code != 200:
+        raise SynchroniserError(uri + ' - ' + str(del_response.status_code))
+
+
 def receive_new_regs(body):
     for application in body['data']:
 
         number = application['number']
         date = application['date']
+
+        move_images(number, date)
+
         logging.info("-----------------------------------------------")
         logging.info("Process registration %d/%s", number, date)
 
@@ -229,6 +270,9 @@ def get_amendment_type(new_reg):
 def receive_amendment(body):
     logging.debug(body)
     for new_reg in body['data']:
+
+        move_images(new_reg['number'], new_reg['date'])
+
         new_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + new_reg['date'] + '/' + str(new_reg['number']))
         regn = new_get.json()
 
@@ -261,24 +305,24 @@ def receive_amendment(body):
 
 
 def get_entries_for_sync():
-    date = datetime.now().strftime('%Y-%m-%d')
-    url = CONFIG['REGISTER_URI'] + '/registrations/' + date
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    elif response.status_code != 404:
-        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
-    return []
-    # return [{
-        # "application": "new",
-        # "data": [
-            # {
-                # "number": 1000,
-                # "date": "2016-02-05"
-            # }
-        # ],
-        # "id": 4245
-    # }]
+    # date = datetime.now().strftime('%Y-%m-%d')
+    # url = CONFIG['REGISTER_URI'] + '/registrations/' + date
+    # response = requests.get(url)
+    # if response.status_code == 200:
+    #     return response.json()
+    # elif response.status_code != 404:
+    #     raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+    # return []
+    return [{
+        "application": "new",
+        "data": [
+            {
+                "number": 1020,
+                "date": "2016-02-11"
+            }
+        ],
+        "id": 42476878765
+    }]
 
 
 def synchronise(config):
@@ -297,11 +341,13 @@ def synchronise(config):
     there_were_errors = False
     for entry in entries:
         logging.info("Process {}".format(entry['application']))
+
+
         try:
             if entry['application'] == 'new':
                 receive_new_regs(entry)
-            elif entry['application'] == 'cancel':
-                receive_cancellation(entry)
+            # elif entry['application'] == 'cancel':
+            #     receive_cancellation(entry)
             elif entry['application'] == 'amend':
                 receive_amendment(entry)
             else:
