@@ -146,7 +146,7 @@ def move_images(number, date):
 
     form = form_response.json()
     for image in form['images']:
-        uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], image)
+        uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], image['page'])
         image_response = requests.get(uri)
 
         if image_response.status_code != 200:
@@ -156,7 +156,7 @@ def move_images(number, date):
         bin_data = image_response.content
 
         # Right, now post that to the main database
-        uri = "{}/images/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], date, number, image)
+        uri = "{}/images/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], date, number, image['page'])
         archive_response = requests.put(uri, data=bin_data, headers={'Content-Type': content_type})
         if archive_response.status_code != 201:
             raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
@@ -305,24 +305,24 @@ def receive_amendment(body):
 
 
 def get_entries_for_sync():
-    # date = datetime.now().strftime('%Y-%m-%d')
-    # url = CONFIG['REGISTER_URI'] + '/registrations/' + date
-    # response = requests.get(url)
-    # if response.status_code == 200:
-    #     return response.json()
-    # elif response.status_code != 404:
-    #     raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+    date = datetime.now().strftime('%Y-%m-%d')
+    url = CONFIG['REGISTER_URI'] + '/registrations/' + date
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code != 404:
+        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
     # return []
-    return [{
-        "application": "new",
-        "data": [
-            {
-                "number": 1020,
-                "date": "2016-02-11"
-            }
-        ],
-        "id": 42476878765
-    }]
+    # return [{
+        # "application": "new",
+        # "data": [
+            # {
+                # "number": 1020,
+                # "date": "2016-02-11"
+            # }
+        # ],
+        # "id": 42476878765
+    # }]
 
 
 def synchronise(config):
