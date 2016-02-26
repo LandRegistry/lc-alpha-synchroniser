@@ -1,29 +1,36 @@
 {
-  "registration": {
-    "number": 50015,
-    "date": "2014-01-01"
-  },
-  "debtor_names": [ {
-    "forename": ["Royal", "Wilma" ],
-    "surname": "Keebler"
-  }, {
-      "forename": ["Royal"],
-      "surname": "Keebler"
-  } ],
-  "registration_date": "2014-11-19",
-  "application_ref": "4862823",
-  "application_type": "WOB",
-  "residence": [
+  "parties": [
     {
-      "address_lines": [
-        "395 Marjory Square",
-        "Port Sammyville",
-        "Fife",
-        "GS17 3BN"
-      ]
+      "names": [
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Jo",
+              "John"
+            ],
+            "surname": "Johnson"
+          },
+          "search_key": "JOJOHNJOHNSON"
+        }
+      ],
+      "type": "Estate Owner"
     }
   ],
-  "occupation": "Gamekeeper",
-  "legal_body": "A Court",
-  "legal_body_ref": "123 of 2015"
+  "additional_information": "",
+  "revealed": true,
+  "status": "current",
+  "registration": {
+    "number": 1003,
+    "date": "2014-08-01"
+  },
+  "class_of_charge": "C1",
+  "particulars": {
+    "counties": [
+      "Devon"
+    ],
+    "district": "South Hams",
+    "description": "1 The Lane, Some Village"
+  }
 }

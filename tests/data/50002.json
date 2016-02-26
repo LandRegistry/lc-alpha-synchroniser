@@ -1,43 +1,46 @@
 {
-  "registration": {
-    "number": 50001,
-    "date": "2014-01-01"
-  },
-  "debtor_names": [ {
-    "forenames": [
-      "Eriberto",
-      "Eleazar"
-    ],
-    "surname": "Kshlerin"
-  } ],
-  "registration_date": "2015-03-05",
-  "application_ref": "8058423",
-  "application_type": "PAB",
-  "residence": [
+  "parties": [
     {
-      "address_lines": [
-        "573 Kelly Knolls",
-        "Brandymouth",
-        "Staffordshire",
-        "XE46 7DA"
-      ]
-    },
-    {
-      "address_lines": [
-        "8591 Rosa Harbors",
-        "Schoenborough",
-        "Greater Manchester",
-        "NK84 1SS"
-      ]
+      "occupation": "Civil Servant",
+      "date_of_birth": "1980-01-01",
+      "type": "Debtor",
+      "names": [
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Bob",
+              "Oscar",
+              "Francis"
+            ],
+            "surname": "Howard"
+          },
+          "search_key": "BOBOSCARFRANCISHOWARD"
+        }
+      ],
+      "case_reference": "[WHAT GOES HERE] FIXME!",
+      "addresses": [
+        {
+          "address_string": "1 The Street, The Town, The County, AA1 1AA",
+          "county": "The County",
+          "postcode": "AA1 1AA",
+          "type": "Residence",
+          "address_lines": [
+            "1 The Street",
+            "The Town"
+          ]
+        }
+      ],
+      "residence_withheld": false
     }
   ],
-  "occupation": "Composer",
-  "legal_body": "A Court",
-  "legal_body_ref": "123 of 2015",
-  "cancellation_ref": 9822,
-  "cancellation_date": "2014-01-01",
-  "amends_regn": {
-    "number": "50001",
-    "date": "2000-01-01"
-  }
+  "additional_information": "",
+  "revealed": true,
+  "status": "current",
+  "registration": {
+    "number": 1000,
+    "date": "2014-06-03"
+  },
+  "class_of_charge": "PAB"
 }

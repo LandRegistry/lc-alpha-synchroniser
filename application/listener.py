@@ -1,6 +1,6 @@
 #from application.routes import app
 from application.utility import encode_name, occupation_string, residences_to_string, get_amendment_text, \
-    class_to_numeric, translate_non_pi_name, compare_names
+    class_to_numeric, translate_non_pi_name, compare_names, encode_variant_a_name
 import requests
 import json
 import kombu
@@ -79,36 +79,72 @@ def create_legacy_data(data):
         hex_append = ''
 
     elif eo_name['type'] == 'County Council':
-        encoded_name = translate_non_pi_name(eo_name['local']['name'])
+        encoded_name = {
+            'coded_name': eo_name['search_key'][:11],
+            'remainder_name': eo_name['search_key'][12:],
+            'name': eo_name['local']['name'].upper()
+        }
         hex_append = "01"
         occupation = ''
 
     elif eo_name['type'] == 'Parish Council':
-        encoded_name = translate_non_pi_name(eo_name['local']['name'])
+        encoded_name = {
+            'coded_name': eo_name['search_key'][:11],
+            'remainder_name': eo_name['search_key'][12:],
+            'name': eo_name['local']['name'].upper()
+        }
         hex_append = "04"
         occupation = ''
 
     elif eo_name['type'] == 'Other Council':
-        encoded_name = translate_non_pi_name(eo_name['local']['name'])
+        encoded_name = {
+            'coded_name': eo_name['search_key'][:11],
+            'remainder_name': eo_name['search_key'][12:],
+            'name': eo_name['local']['name'].upper()
+        }
         hex_append = "08"
         occupation = ''
 
     elif eo_name['type'] == 'Development Corporation':
-        encoded_name = translate_non_pi_name(eo_name['other'])
+        encoded_name = {
+            'coded_name': eo_name['search_key'][:11],
+            'remainder_name': eo_name['search_key'][12:],
+            'name': eo_name['other'].upper()
+        }
         hex_append = "16"
         occupation = ''
 
     elif eo_name['type'] == 'Limited Company':
-        encoded_name = translate_non_pi_name(eo_name['company'])
+        encoded_name = {
+            'coded_name': eo_name['search_key'][:11],
+            'remainder_name': eo_name['search_key'][12:],
+            'name': eo_name['company'].upper()
+        }
         hex_append = "F1"
         occupation = ''
 
-    elif data['estate_owner_ind'] == 'Complex Name':
-        raise NotImplementedError("Complex Names")
+    elif eo_name['type'] == 'Complex Name':
+        cnum_hex = hex(eo_name['complex']['number'])[2:].zfill(6).upper()
+        hex_string = 'F9' + cnum_hex + '00000000000000F3'
+        encoded_name = {
+            'coded_name': hex_string,
+            'remainder_name': '',
+            'name': eo_name['complex']['name'].upper()
+        }
+        hex_append = 'F3'
 
-    elif data['estate_owner_ind'] == 'Other':
-        encoded_name = translate_non_pi_name(eo_name['other'])
-        hex_append = "F2"
+    elif eo_name['type'] == 'Other':
+        if eo_name['subtype'] == 'A':  # VARNAM A
+            encoded_name = encode_variant_a_name(eo_name['other'])
+            encoded_name['name'] = eo_name['other'].upper()
+            hex_append = ""
+        else:  # VARNAM B
+            encoded_name = {
+                'coded_name': eo_name['search_key'][:11],
+                'remainder_name': eo_name['search_key'][12:],
+                'name': eo_name['other'].upper()
+            }
+            hex_append = "F2"
         occupation = ''
 
     else:
@@ -322,6 +358,9 @@ def get_entries_for_sync():
     elif response.status_code != 404:
         raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
     return []
+
+    # return []
+
     # return [{
         # "application": "new",
         # "data": [

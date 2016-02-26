@@ -1,31 +1,57 @@
 {
-  "registration": {
-    "number": 50003,
-    "date": "2014-01-01"
-  },
-  "debtor_names": [ {
-    "forenames": [ "Eulah" ],
-    "surname": "Beier"
-  }, {
-      "forenames": [ "Stefanie"],
-      "surname": "Beier"
-  }],
-  "residence": [
+  "parties": [
     {
-      "address_lines": [
-        "37523 Hegmann Burgs",
-        "Feeneyborough",
-        "Carlofurt",
-        "Surrey",
-        "UP38 2TT"
-      ]
+      "occupation": "Civil Servant",
+      "date_of_birth": "1980-01-01",
+      "type": "Debtor",
+      "names": [
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Bert"
+            ],
+            "surname": "Smith"
+          },
+          "search_key": "BERTSMITH"
+        },
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Alphonso",
+              "Alice"
+            ],
+            "surname": "Schmidt"
+          },
+          "search_key": "ALPHONSOALICESCHMIDT"
+        }
+      ],
+      "case_reference": "[WHAT GOES HERE] FIXME!",
+      "addresses": [
+        {
+          "address_string": "1 The Street, The Locality, The Town, The County, AA1 1AA",
+          "county": "The County",
+          "postcode": "AA1 1AA",
+          "type": "Residence",
+          "address_lines": [
+            "1 The Street",
+            "The Locality",
+            "The Town"
+          ]
+        }
+      ],
+      "residence_withheld": false
     }
   ],
-  "registration_date": "2014-11-10",
-  "application_ref": "9480896",
-  "application_type": "PAB",
-  "trading_name": "Matnix",
-  "occupation": "Dentist",
-  "legal_body": "A Court",
-  "legal_body_ref": "123 of 2015"
+  "additional_information": "",
+  "revealed": true,
+  "status": "current",
+  "registration": {
+    "number": 1002,
+    "date": "2014-07-02"
+  },
+  "class_of_charge": "PAB"
 }

@@ -1,37 +1,57 @@
 {
-  "registration": {
-    "number": 50001,
-    "date": "2014-01-01"
-  },
-  "debtor_names": [ {
-    "forenames": [
-      "Eriberto",
-      "Eleazar"
-    ],
-    "surname": "Kshlerin"
-  } ],
-  "registration_date": "2015-03-05",
-  "application_ref": "8058423",
-  "application_type": "PAB",
-  "residence": [
+  "parties": [
     {
-      "address_lines": [
-        "573 Kelly Knolls",
-        "Brandymouth",
-        "Staffordshire",
-        "XE46 7DA"
-      ]
-    },
-    {
-      "address_lines": [
-        "8591 Rosa Harbors",
-        "Schoenborough",
-        "Greater Manchester",
-        "NK84 1SS"
-      ]
+      "occupation": "Civil Servant",
+      "date_of_birth": "1980-01-01",
+      "type": "Debtor",
+      "names": [
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Alphonso",
+              "Alice"
+            ],
+            "surname": "Schmidt"
+          },
+          "search_key": "ALPHONSOALICESCHMIDT"
+        },
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Bert"
+            ],
+            "surname": "Smith"
+          },
+          "search_key": "BERTSMITH"
+        }
+      ],
+      "case_reference": "[WHAT GOES HERE] FIXME!",
+      "addresses": [
+        {
+          "address_string": "1 The Street, The Locality, The Town, The County, AA1 1AA",
+          "county": "The County",
+          "postcode": "AA1 1AA",
+          "type": "Residence",
+          "address_lines": [
+            "1 The Street",
+            "The Locality",
+            "The Town"
+          ]
+        }
+      ],
+      "residence_withheld": false
     }
   ],
-  "occupation": "Composer",
-  "legal_body": "A Court",
-  "legal_body_ref": "123 of 2015"
+  "additional_information": "",
+  "revealed": true,
+  "status": "current",
+  "registration": {
+    "number": 1001,
+    "date": "2014-07-02"
+  },
+  "class_of_charge": "PAB"
 }
