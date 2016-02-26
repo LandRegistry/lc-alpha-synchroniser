@@ -3,34 +3,27 @@ import json
 import logging
 
 
-def encode_name(pi_name):
+def string_encode(text):
     codes_are = {'&': 0, ' ': 1, '-': 2, "'": 3, '(': 4, ')': 5, '*': 6, '?': 7}
-    name = pi_name['private']
-    logging.info(name)
-    mash_with_punc = ' '.join(name['forenames'])
-    # if name['middle_names'] != '':
-    #    mash_with_punc += ' ' + name['middle_names']
-    mash_with_punc += '*' + name['surname']
-
     mashed = ""
     codes = ""
 
-    search = re.search(r"'|\s|\*", mash_with_punc)
+    search = re.search(r"['&\s\-\(\)\*\?]", text)
     while search is not None:
         index = search.start()
-        word = mash_with_punc[0:index]
-        punc = mash_with_punc[index]
+        word = text[0:index]
+        punc = text[index]
         punc = codes_are[punc]
 
         length = index
-        mash_with_punc = mash_with_punc[index + 1:]
+        text = text[index + 1:]
         mashed += word
         code = (punc << 5) + length
         codes += '{:02x}'.format(code)
 
-        search = re.search(r"'|\s|\*", mash_with_punc)
+        search = re.search(r"'|\s|\*", text)
 
-    mashed += mash_with_punc
+    mashed += text
 
     last_12_chars = mashed[-12:]
     first_chars = mashed[:-12]
@@ -41,6 +34,23 @@ def encode_name(pi_name):
         'hex_code': codes.upper(),
         'name': ''
     }
+
+
+def encode_variant_a_name(text):
+    return string_encode(text)
+
+
+def encode_name(pi_name):
+    name = pi_name['private']
+
+    if len(name['forenames']) == 0:  # Special case.
+        return encode_variant_a_name(name['surname'])
+
+    logging.info(name)
+    mash_with_punc = ' '.join(name['forenames'])
+    mash_with_punc += '*' + name['surname']
+    return string_encode(mash_with_punc)
+
 
 
 def translate_non_pi_name(name):
