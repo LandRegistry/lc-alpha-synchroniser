@@ -130,7 +130,7 @@ def get_registration(number, year):
     return response.json()
 
 
-def move_images(number, date):
+def move_images(number, date, coc):
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
     doc_response = requests.get(uri)
     if doc_response.status_code != 200:
@@ -145,8 +145,12 @@ def move_images(number, date):
         raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
 
     form = form_response.json()
+    logging.info('Processing form for %d / %s', number, date)
     for image in form['images']:
-        uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], image)
+        page_number = image['page']
+        logging.info("  Page %d", page_number)
+        size = image['size']
+        uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], page_number)
         image_response = requests.get(uri)
 
         if image_response.status_code != 200:
@@ -156,9 +160,10 @@ def move_images(number, date):
         bin_data = image_response.content
 
         # Right, now post that to the main database
-        uri = "{}/images/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], date, number, image)
+        class_of_charge = coc
+        uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
         archive_response = requests.put(uri, data=bin_data, headers={'Content-Type': content_type})
-        if archive_response.status_code != 201:
+        if archive_response.status_code != 200:
             raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
 
     # If we've got here, then its on the legacy DB
@@ -174,7 +179,7 @@ def receive_new_regs(body):
         number = application['number']
         date = application['date']
 
-        move_images(number, date)
+        
 
         logging.info("-----------------------------------------------")
         logging.info("Process registration %d/%s", number, date)
@@ -187,6 +192,10 @@ def receive_new_regs(body):
         else:
             logging.debug('Registration retrieved')
             body = response.json()
+            
+            move_images(number, date, body['class_of_charge'])
+            
+            
             converted = create_legacy_data(body)
 
             put_response = create_lc_row(converted)
@@ -305,24 +314,24 @@ def receive_amendment(body):
 
 
 def get_entries_for_sync():
-    # date = datetime.now().strftime('%Y-%m-%d')
-    # url = CONFIG['REGISTER_URI'] + '/registrations/' + date
-    # response = requests.get(url)
-    # if response.status_code == 200:
-    #     return response.json()
-    # elif response.status_code != 404:
-    #     raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
-    # return []
-    return [{
-        "application": "new",
-        "data": [
-            {
-                "number": 1020,
-                "date": "2016-02-11"
-            }
-        ],
-        "id": 42476878765
-    }]
+    date = datetime.now().strftime('%Y-%m-%d')
+    url = CONFIG['REGISTER_URI'] + '/registrations/' + date
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code != 404:
+        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+    return []
+    # return [{
+        # "application": "new",
+        # "data": [
+            # {
+                # "number": 1020,
+                # "date": "2016-02-11"
+            # }
+        # ],
+        # "id": 42476878765
+    # }]
 
 
 def synchronise(config):
