@@ -1,6 +1,6 @@
 #from application.routes import app
 from application.utility import encode_name, occupation_string, residences_to_string, get_amendment_text, \
-    class_to_numeric, translate_non_pi_name, compare_names, encode_variant_a_name
+    class_to_numeric, translate_non_pi_name, compare_names, encode_variant_a_name, get_eo_party, SynchroniserError
 import requests
 import json
 import kombu
@@ -11,28 +11,6 @@ import traceback
 
 
 CONFIG = {}
-
-
-class SynchroniserError(Exception):
-    def __init__(self, value):
-        self.value = value
-        super(SynchroniserError, self).__init__(value)
-
-    def __str__(self):
-        return repr(self.value)
-
-
-def get_eo_party(data):
-    if data['class_of_charge'] in ['WOB', 'PAB']:
-        lookfor = 'Debtor'
-    else:
-        lookfor = 'Estate Owner'
-
-    for party in data['parties']:
-        if party['type'] == lookfor:
-            return party
-
-    raise SynchroniserError("Unable to find EO Name")
 
 
 def create_legacy_data(data):
@@ -233,8 +211,6 @@ def receive_new_regs(body):
         number = application['number']
         date = application['date']
 
-        
-
         logging.info("-----------------------------------------------")
         logging.info("Process registration %d/%s", number, date)
 
@@ -248,8 +224,7 @@ def receive_new_regs(body):
             body = response.json()
             
             move_images(number, date, body['class_of_charge'])
-            
-            
+
             converted = create_legacy_data(body)
 
             put_response = create_lc_row(converted)
@@ -333,9 +308,6 @@ def get_amendment_type(new_reg):
 def receive_amendment(body):
     logging.debug(body)
     for new_reg in body['data']:
-
-        move_images(new_reg['number'], new_reg['date'])
-
         new_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + new_reg['date'] + '/' + str(new_reg['number']))
         regn = new_get.json()
 
@@ -347,14 +319,16 @@ def receive_amendment(body):
 
         logging.info(old_reg)
         logging.info(new_reg)
+        move_images(regn['registration']['number'], regn['registration']['date'], regn['class_of_charge'])
+
         old_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + old_reg['date'] + '/' + str(old_reg['number']))
 
         oregn = old_get.json()
         if not oregn['revealed']:
+            logging.info('DELETING %d %s', oregn['registration']['number'], oregn['registration']['date'])
             requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges/{}/{}/{}'.format(oregn['registration']['number'],
                                                                                       oregn['registration']['date'],
                                                                                       oregn['class_of_charge']))
-        logging.info('HERE')
         converted = create_legacy_data(regn)
         requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
                      data=json.dumps(converted), headers={'Content-Type': 'application/json'})
@@ -367,8 +341,8 @@ def receive_amendment(body):
         create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, a_type)
 
 
-def get_entries_for_sync():
-    date = datetime.now().strftime('%Y-%m-%d')
+def get_entries_for_sync(date):
+    logging.info('Get entries for date %s', date)
     url = CONFIG['REGISTER_URI'] + '/registrations/' + date
     response = requests.get(url)
     if response.status_code == 200:
@@ -391,7 +365,7 @@ def get_entries_for_sync():
     # }]
 
 
-def synchronise(config):
+def synchronise(config, date):
     global CONFIG
     CONFIG = config
 
@@ -400,7 +374,7 @@ def synchronise(config):
     connection = kombu.Connection(hostname=hostname)
     producer = connection.SimpleQueue('errors')
 
-    entries = get_entries_for_sync()
+    entries = get_entries_for_sync(date)
     logging.info("Synchroniser starts")
     logging.info("%d Entries received", len(entries))
 

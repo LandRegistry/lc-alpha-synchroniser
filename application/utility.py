@@ -3,6 +3,15 @@ import json
 import logging
 
 
+class SynchroniserError(Exception):
+    def __init__(self, value):
+        self.value = value
+        super(SynchroniserError, self).__init__(value)
+
+    def __str__(self):
+        return repr(self.value)
+
+
 def string_encode(text):
     codes_are = {'&': 0, ' ': 1, '-': 2, "'": 3, '(': 4, ')': 5, '*': 6, '?': 7}
     mashed = ""
@@ -52,7 +61,6 @@ def encode_name(pi_name):
     return string_encode(mash_with_punc)
 
 
-
 def translate_non_pi_name(name):
     no_space = name.replace(" ", "").upper()
     return {
@@ -62,10 +70,22 @@ def translate_non_pi_name(name):
         'hex_code': ''
     }
 
+
+def get_eo_party(data):
+    if data['class_of_charge'] in ['WOB', 'PAB']:
+        lookfor = 'Debtor'
+    else:
+        lookfor = 'Estate Owner'
+
+    for party in data['parties']:
+        if party['type'] == lookfor:
+            return party
+
+    raise SynchroniserError("Unable to find EO Name")
+
+
 def address_to_string(address):
-    # TODO: consider implications of current data being <lines>\<postcode>\<county>,
-    # where this is storing <lines>\<county>\<postcode>
-    return ' '.join(address['address_lines'])
+    return (' '.join(address['address_lines']) + ' ' + address['postcode'] + ' ' + address['county']).upper()
 
 
 def get_amendment_text(data):
