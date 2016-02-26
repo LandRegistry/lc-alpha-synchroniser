@@ -82,7 +82,8 @@ def create_legacy_data(data):
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
             'remainder_name': eo_name['search_key'][12:],
-            'name': eo_name['local']['name'].upper()
+            'name': eo_name['local']['name'].upper(),
+            'hex_code': ''
         }
         hex_append = "01"
         occupation = ''
@@ -91,7 +92,8 @@ def create_legacy_data(data):
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
             'remainder_name': eo_name['search_key'][12:],
-            'name': eo_name['local']['name'].upper()
+            'name': eo_name['local']['name'].upper(),
+            'hex_code': ''
         }
         hex_append = "04"
         occupation = ''
@@ -100,7 +102,8 @@ def create_legacy_data(data):
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
             'remainder_name': eo_name['search_key'][12:],
-            'name': eo_name['local']['name'].upper()
+            'name': eo_name['local']['name'].upper(),
+            'hex_code': ''
         }
         hex_append = "08"
         occupation = ''
@@ -109,7 +112,8 @@ def create_legacy_data(data):
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
             'remainder_name': eo_name['search_key'][12:],
-            'name': eo_name['other'].upper()
+            'name': eo_name['other'].upper(),
+            'hex_code': ''
         }
         hex_append = "16"
         occupation = ''
@@ -118,7 +122,8 @@ def create_legacy_data(data):
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
             'remainder_name': eo_name['search_key'][12:],
-            'name': eo_name['company'].upper()
+            'name': eo_name['company'].upper(),
+            'hex_code': ''
         }
         hex_append = "F1"
         occupation = ''
@@ -129,7 +134,19 @@ def create_legacy_data(data):
         encoded_name = {
             'coded_name': hex_string,
             'remainder_name': '',
-            'name': eo_name['complex']['name'].upper()
+            'name': eo_name['complex']['name'].upper(),
+            'hex_code': ''
+        }
+        hex_append = 'F3'
+        
+    elif eo_name['type'] == 'Coded Name':
+        cnum_hex = hex("9999924")[2:].zfill(6).upper()
+        hex_string = 'F9' + cnum_hex + '00000000000000F3'
+        encoded_name = {
+            'coded_name': hex_string,
+            'remainder_name': '',
+            'name': eo_name['complex']['name'].upper(),
+            'hex_code': ''
         }
         hex_append = 'F3'
 
@@ -142,7 +159,8 @@ def create_legacy_data(data):
             encoded_name = {
                 'coded_name': eo_name['search_key'][:11],
                 'remainder_name': eo_name['search_key'][12:],
-                'name': eo_name['other'].upper()
+                'name': eo_name['other'].upper(),
+                'hex_code': ''
             }
             hex_append = "F2"
         occupation = ''

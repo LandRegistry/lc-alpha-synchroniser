@@ -4,7 +4,7 @@ import os
 from application.listener import synchronise
 from log.logger import setup_logging
 
-cfg = 'config.Config'
+cfg = 'Config'
 c = getattr(importlib.import_module('config'), cfg)
 config = {}
 
