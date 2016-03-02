@@ -269,33 +269,75 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
     return put
 
 
+def get_regn_key(regn):
+    return regn['number']
+
+
+def get_full_regn_key(regn):
+    return regn['registration']['number']
+
+
 def receive_cancellation(body):
-    for ref in body['data']:
+
+    # Everything in body pertains to *one* detail record, but multiple legacy records
+    # However, still assume an image per item
+
+    if len(body['data']) > 0:
+        # Iterate through the whole history...
+        number = body['data'][0]['number']
+        date = body['data'][0]['date']
+        history = requests.get(CONFIG['REGISTER_URI'] + '/history/' + date + '/' + str(number))
+        history = json.loads(history.text)
+        original_record = history[-1]  # We'll need this later
+
+        print(original_record)
+        original_registrations = []
+        for reg in original_record['registrations']:
+            oreq = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + reg['date'] + '/' + str(reg['number']))
+            original_registrations.append(json.loads(oreq.text))
+
+        for item in history:
+            for reg in item['registrations']:
+                resource = "/{}/{}/{}".format(reg['number'], reg['date'], class_to_numeric(item['class_of_charge']))
+                delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource)
+                if delete.status_code != 200:
+                    logging.error('DELETE /land_charges - %s', str(delete.status_code))
+                    raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
+    else:
+        raise SynchroniserError("Unexpected lack of data for id {}".format(body['id']))
+
+    body['data'] = sorted(body['data'], key=get_regn_key)
+    original_registrations = sorted(original_registrations, key=get_full_regn_key)
+
+    for index, ref in enumerate(body['data']):
         number = ref['number']
         date = ref['date']
-        response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number))
-        if response.status_code != 200:
-            logging.error('GET /registrations - %s', str(response.status_code))
-            raise SynchroniserError('GET /registrations - ' + str(response.status_code))
-        else:
-            regn = response.json()
-            resource = "/{}/{}/{}".format(regn['registration']['number'],
-                                          regn['registration']['date'],
-                                          class_to_numeric(regn['class_of_charge']))
+        registration = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number))
+        registration = json.loads(registration.text)
+        move_images(number, date, registration['class_of_charge'])
 
-            # TODO: consider what happens when cancelling an entry that has pre-existing rows
-            # under a different registration number?
-            delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource)
-            if delete.status_code != 200:
-                logging.error('DELETE /land_charges - %s', str(delete.status_code))
-                raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
-            #create_cancellation_history(body, regn)
-            create_document_row(resource, regn['cancellation_ref'], regn['cancellation_date'], regn, 'CN')
+        resource = "/{}/{}/{}".format(registration['registration']['number'],
+                                      registration['registration']['date'],
+                                      class_to_numeric(registration['class_of_charge']))
+
+        original_registration = original_registrations[index]
+        # TODO  handle new and old being different numbers of regs - more important for amends etc.
+
+        create_document_row(resource, number, date, {
+            "class_of_charge": original_registration['class_of_charge'],
+            "registration": {
+                "number": original_registration['registration']['number'],
+                "date": original_registration['registration']['date']
+            }
+        }, "CN")
 
 
 def get_amendment_type(new_reg):
     type_of_amend = {
-        'Rectification': 'RC'
+        'Rectification': 'RC',
+        'Cancellation': 'CN',
+        'Part Cancellation': 'CP',
+        'Amendment': 'AM'
     }
 
     r_code = new_reg['amends_registration']['type']
@@ -386,12 +428,12 @@ def synchronise(config, date):
         try:
             if entry['application'] == 'new':
                 receive_new_regs(entry)
-            # elif entry['application'] == 'cancel':
-            #     receive_cancellation(entry)
-            elif entry['application'] == 'amend':
+            elif entry['application'] == 'Cancellation':
+                receive_cancellation(entry)
+            elif entry['application'] in ['Part Cancellation', 'Rectification', 'Amendment']:
                 receive_amendment(entry)
             else:
-                raise SynchroniserError('Unknown application type: %s', entry['application'])
+                raise SynchroniserError('Unknown application type: {}'.format(entry['application']))
 
         # pylint: disable=broad-except
         except Exception as exception:
