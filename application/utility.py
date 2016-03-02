@@ -151,7 +151,28 @@ def class_to_numeric(coc):
         'C(IV)': 'C4',
         'D(I)': 'D1',
         'D(II)': 'D2',
-        'D(III)': 'D3'
+        'D(III)': 'D3',
+        'PA(B)': 'PAB',
+        'WO(B)': 'WOB'
+    }
+
+    if coc in classes:
+        return classes[coc]
+    else:
+        return coc
+
+
+def class_to_roman(coc):
+    classes = {
+        'C1': 'C(I)',
+        'C2': 'C(II)',
+        'C3': 'C(III)',
+        'C4': 'C(IV)',
+        'D1': 'D(I)',
+        'D2': 'D(II)',
+        'D3': 'D(III)',
+        'PAB': 'PA(B)',
+        'WOB': 'WO(B)'
     }
 
     if coc in classes:

@@ -1,6 +1,7 @@
 #from application.routes import app
 from application.utility import encode_name, occupation_string, residences_to_string, get_amendment_text, \
-    class_to_numeric, translate_non_pi_name, compare_names, encode_variant_a_name, get_eo_party, SynchroniserError
+    class_to_numeric, translate_non_pi_name, compare_names, encode_variant_a_name, get_eo_party, SynchroniserError, \
+    class_to_roman
 import requests
 import json
 import kombu
@@ -155,10 +156,11 @@ def create_legacy_data(data):
     return legacy_object
 
 
-def get_registration(number, year):
-    response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + str(number), params={'year': year})
+def get_registration(number, date):
+    url = CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number)
+    response = requests.get(url)
     if response.status_code != 200:
-        raise SynchroniserError('/registrations - ' + str(response.status_code))
+        raise SynchroniserError('Unexpected response {} from {}'.format(response.status_code, url))
     return response.json()
 
 
@@ -269,12 +271,28 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
     return put
 
 
+def delete_lc_row(number, date, class_of_charge):
+    resource = "/{}/{}/{}".format(number, date, class_to_roman(class_of_charge))
+    delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource)
+    if delete.status_code != 200:
+        logging.error('DELETE /land_charges - %s', str(delete.status_code))
+        raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
+
+
 def get_regn_key(regn):
     return regn['number']
 
 
 def get_full_regn_key(regn):
     return regn['registration']['number']
+
+
+def get_history(number, date):
+    url = CONFIG['REGISTER_URI'] + '/history/' + date + '/' + str(number)
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+    return json.loads(response.text)
 
 
 def receive_cancellation(body):
@@ -286,34 +304,41 @@ def receive_cancellation(body):
         # Iterate through the whole history...
         number = body['data'][0]['number']
         date = body['data'][0]['date']
-        history = requests.get(CONFIG['REGISTER_URI'] + '/history/' + date + '/' + str(number))
-        history = json.loads(history.text)
+        history = get_history(number, date)
         original_record = history[-1]  # We'll need this later
 
         print(original_record)
         original_registrations = []
         for reg in original_record['registrations']:
-            oreq = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + reg['date'] + '/' + str(reg['number']))
-            original_registrations.append(json.loads(oreq.text))
+            oreg = get_registration(reg['number'], reg['date'])
+            original_registrations.append(oreg)
+            # oreq = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + reg['date'] + '/' + str(reg['number']))
+            # original_registrations.append(json.loads(oreq.text))
 
         for item in history:
             for reg in item['registrations']:
-                resource = "/{}/{}/{}".format(reg['number'], reg['date'], class_to_numeric(item['class_of_charge']))
-                delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource)
-                if delete.status_code != 200:
-                    logging.error('DELETE /land_charges - %s', str(delete.status_code))
-                    raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
+                delete_lc_row(reg['number'], reg['date'], item['class_of_charge'])
+
+                # resource = "/{}/{}/{}".format(reg['number'], reg['date'], class_to_numeric(item['class_of_charge']))
+                # delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource)
+                # if delete.status_code != 200:
+                #     logging.error('DELETE /land_charges - %s', str(delete.status_code))
+                #     raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
     else:
         raise SynchroniserError("Unexpected lack of data for id {}".format(body['id']))
 
     body['data'] = sorted(body['data'], key=get_regn_key)
     original_registrations = sorted(original_registrations, key=get_full_regn_key)
 
+    if len(original_registrations) != len(body['data']):
+        raise SynchroniserError("Unable to process unmatches cancellation lengths")
+
     for index, ref in enumerate(body['data']):
         number = ref['number']
         date = ref['date']
-        registration = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number))
-        registration = json.loads(registration.text)
+        registration = get_registration(number, date)
+        #     requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number))
+        # registration = json.loads(registration.text)
         move_images(number, date, registration['class_of_charge'])
 
         resource = "/{}/{}/{}".format(registration['registration']['number'],
@@ -321,7 +346,6 @@ def receive_cancellation(body):
                                       class_to_numeric(registration['class_of_charge']))
 
         original_registration = original_registrations[index]
-        # TODO  handle new and old being different numbers of regs - more important for amends etc.
 
         create_document_row(resource, number, date, {
             "class_of_charge": original_registration['class_of_charge'],
@@ -348,39 +372,107 @@ def get_amendment_type(new_reg):
 
 
 def receive_amendment(body):
-    logging.debug(body)
-    for new_reg in body['data']:
-        new_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + new_reg['date'] + '/' + str(new_reg['number']))
-        regn = new_get.json()
+    # Get history from the first registration number
+    if len(body['data']) == 0:
+        raise SynchroniserError("Received empty amendment data list")
 
-        logging.debug(regn)
-        old_reg = {
-            'number': regn['amends_registration']['number'],
-            'date': regn['amends_registration']['date']
-        }
+    number = body['data'][0]['number']
+    date = body['data'][0]['date']
+    history = get_history(number, date)
 
-        logging.info(old_reg)
-        logging.info(new_reg)
-        move_images(regn['registration']['number'], regn['registration']['date'], regn['class_of_charge'])
+    if len(history) <= 1:  #
+        raise SynchroniserError("Received insufficient historical data for amendment")
 
-        old_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + old_reg['date'] + '/' + str(old_reg['number']))
+    current_record = history[0]                         # The first item is the amended (current) record
+    amendment_type = current_record['application']      # Get application_type from history[0]['application']
+    previous_record = history[1]                        # The second item is the predecessor
 
-        oregn = old_get.json()
-        if not oregn['revealed']:
-            logging.info('DELETING %d %s', oregn['registration']['number'], oregn['registration']['date'])
-            requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges/{}/{}/{}'.format(oregn['registration']['number'],
-                                                                                      oregn['registration']['date'],
-                                                                                      oregn['class_of_charge']))
-        converted = create_legacy_data(regn)
-        requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
-                     data=json.dumps(converted), headers={'Content-Type': 'application/json'})
+    if len(current_record['registrations']) < len(previous_record['registrations']):
+        raise SynchroniserError("Unable to handle cancellation implied by len[current] < len[previous]")
 
-        res = '/{}/{}/{}'.format(regn['registration']['number'],
-                                 regn['registration']['date'],
-                                 class_to_numeric(regn['class_of_charge']))
+    #  Remove the predecessors from leg-land-charge
+    for item in previous_record['registrations']:
+        delete_lc_row(item['number'], item['date'], previous_record['class_of_charge'])
 
-        a_type = get_amendment_type(regn)
-        create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, a_type)
+    for index, item in enumerate(current_record['registrations']):
+        move_images(item['number'], item['date'], current_record['class_of_charge'])
+        reg = get_registration(item['number'], item['date'])
+        converted = create_legacy_data(reg)
+
+        put_response = create_lc_row(converted)
+        if put_response.status_code == 200:
+            logging.debug('PUT /land_charges - OK')
+        else:
+            # TODO: this causes the loop to break. Which is bad.
+            raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
+                                    put_response.status_code, number, date))
+        coc = class_to_numeric(current_record['class_of_charge'])
+
+        if index < len(previous_record['registrations']):
+            predecessor = previous_record['registrations'][index]
+
+            res = "/{}/{}/{}".format(item['number'], item['date'], coc)
+            a_type = get_amendment_type(reg)
+            create_document_row(res, item['number'], item['date'], {
+                'class_of_charge': previous_record['class_of_charge'],
+                'registration': {
+                    'number': predecessor['number'],
+                    'date': predecessor['date']
+                }
+            }, a_type)
+        else:
+            res = "/{}/{}/{}".format(item['number'], item['date'], coc)
+            create_document_row(res, item['number'], item['date'], {
+                'class_of_charge': previous_record['class_of_charge'],
+                'registration': {
+                    'number': item['number'],
+                    'date': item['date']
+                }
+            }, 'NR')
+
+    # for each index, current:
+    #   move image
+    #   add to leg-land-charge
+    #   if current has corresponding pred:
+    #       add doc_info (AM)
+    #   else
+    #       add doc_info (NR)
+    pass
+
+
+    # logging.debug(body)
+    # for new_reg in body['data']:
+    #     new_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + new_reg['date'] + '/' + str(new_reg['number']))
+    #     regn = new_get.json()
+    #
+    #     logging.debug(regn)
+    #     old_reg = {
+    #         'number': regn['amends_registration']['number'],
+    #         'date': regn['amends_registration']['date']
+    #     }
+    #
+    #     logging.info(old_reg)
+    #     logging.info(new_reg)
+    #     move_images(regn['registration']['number'], regn['registration']['date'], regn['class_of_charge'])
+    #
+    #     old_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + old_reg['date'] + '/' + str(old_reg['number']))
+    #
+    #     oregn = old_get.json()
+    #     if not oregn['revealed']:
+    #         logging.info('DELETING %d %s', oregn['registration']['number'], oregn['registration']['date'])
+    #         requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges/{}/{}/{}'.format(oregn['registration']['number'],
+    #                                                                                   oregn['registration']['date'],
+    #                                                                                   oregn['class_of_charge']))
+    #     converted = create_legacy_data(regn)
+    #     requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
+    #                  data=json.dumps(converted), headers={'Content-Type': 'application/json'})
+    #
+    #     res = '/{}/{}/{}'.format(regn['registration']['number'],
+    #                              regn['registration']['date'],
+    #                              class_to_numeric(regn['class_of_charge']))
+    #
+    #     a_type = get_amendment_type(regn)
+    #     create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, a_type)
 
 
 def get_entries_for_sync(date):
