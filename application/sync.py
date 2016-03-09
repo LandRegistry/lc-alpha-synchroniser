@@ -94,7 +94,7 @@ def create_legacy_data(data):
             'name': eo_name['other'].upper(),
             'hex_code': ''
         }
-        hex_append = "16"
+        hex_append = "10"
         occupation = ''
 
     elif eo_name['type'] == 'Limited Company':
