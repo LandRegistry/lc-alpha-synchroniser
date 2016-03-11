@@ -474,86 +474,91 @@ def receive_amendment(body):
     #     a_type = get_amendment_type(regn)
     #     create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, a_type)
 
-def receive_searches(body):
-    for application in body:
-        search_id = application['search_id']
-        request_id = application['request_id']
+def receive_searches(application):
+    # for application in body:
+    search_id = application['search_id']
+    request_id = application['request_id']
 
-        logging.info("-----------------------------------------------")
-        logging.info("Process search id %d", search_id)
+    logging.info("-----------------------------------------------")
+    logging.info("Process search id %d", search_id)
 
-        response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + request_id)
-        if response.status_code != 200:
-            logging.error("GET /request_details/{} - {}", request_id, response.status_code)
-            raise SynchroniserError("Unexpected response {} on GET /request_details/{}".format(
-                response.status_code, request_id))
+    response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + str(request_id))
+    if response.status_code != 200:
+        logging.error("GET /request_details/{} - {}", request_id, response.status_code)
+        raise SynchroniserError("Unexpected response {} on GET /request_details/{}".format(
+            response.status_code, request_id))
+    else:
+        logging.debug('Search retrieved')
+        body = response.json()
+        search_name = body['search_details'][0]['names'][0]
+        name = create_search_name(search_name)
+        if body['key_number'] == '':
+            key_no = ' '
+            despatch = body['customer_name'] + '*' + body['customer_address'].replace('\r\n', '*')
         else:
-            logging.debug('Search retrieved')
-            body = response.json()
-            search_name = body['search_details'][0]['names'][0]
-            name = create_search_name(search_name)
-            if body['key_number'] == '':
-                key_no = ' '
-                despatch = body['customer_name'] + '*' + body['customer_address'].replace('\r\n', '*')
+            key_no = body['key_number']
+            despatch = ' '
+
+        if body['type'] == 'full':
+            form = 'K15'
+        else:
+            form = 'K16'
+
+        search_data = {'lc_image_part_no': 0,
+                       'cust_ref': body['application_reference'].upper(),
+                       'desp_name_addr': despatch.upper(),
+                       'key_no_cust': key_no,
+                       'lc_srch_appn_form': form,
+                       'lc_search_name': name
+                       }
+
+        uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
+        doc_response = requests.get(uri)
+        if doc_response.status_code != 200:
+            raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
+
+        document = doc_response.json()
+
+        uri = '{}/forms/{}'.format(CONFIG['CASEWORK_API_URI'], document['document_id'])
+        form_response = requests.get(uri)
+
+        if form_response.status_code != 200:
+            raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
+
+        form = form_response.json()
+        logging.info('Processing form for search %d', search_id)
+        for image in form['images']:
+            search_data = {}
+            page_number = image['page']
+            logging.info("  Page %d", page_number)
+            uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], page_number)
+            image_response = requests.get(uri)
+
+            if image_response.status_code != 200:
+                raise SynchroniserError(uri + ' - ' + str(image_response.status_code))
+
+            content_type = image_response.headers['Content-Type']
+            bin_data = image_response.content
+            search_data['lc_image_part_no'] = page_number
+            search_data['image_data'] = bin_data
+            search_data['lc_image_size'] = len(bin_data)
+            search_data['lc_image_scan_date'] = datetime.now().strftime('%Y-%m-%d')
+
+            # Right, now post that to the main database
+            uri = "{}/search_images".format(CONFIG['LEGACY_DB_URI'])
+            archive_response = requests.put(uri, data=search_data, headers={'Content-Type': content_type})
+            if archive_response.status_code != 200:
+                raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
             else:
-                key_no = body['key_number']
-                despatch = ' '
+                search_data['lc_image_id'] = int(archive_response.text)
+                print('********lc_image_id*******')
+                print(search_data['lc_image_id'])
 
-            if body['type'] == 'full':
-                form = 'K15'
-            else:
-                form = 'K16'
-
-            search_data = {'lc_image_part_no': 0,
-                           'cust_ref': body['application_reference'].upper(),
-                           'desp_name_addr': despatch.upper(),
-                           'key_no_cust': key_no,
-                           'lc_srch_appn_form': form,
-                           'lc_search_name': name
-                           }
-
-            uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
-            doc_response = requests.get(uri)
-            if doc_response.status_code != 200:
-                raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
-
-            document = doc_response.json()
-
-            uri = '{}/forms/{}'.format(CONFIG['CASEWORK_API_URI'], document['document_id'])
-            form_response = requests.get(uri)
-
-            if form_response.status_code != 200:
-                raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
-
-            form = form_response.json()
-            logging.info('Processing form for search %d', search_id)
-            for image in form['images']:
-                page_number = image['page']
-                logging.info("  Page %d", page_number)
-                size = image['size']
-                uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], page_number)
-                image_response = requests.get(uri)
-
-                if image_response.status_code != 200:
-                    raise SynchroniserError(uri + ' - ' + str(image_response.status_code))
-
-                content_type = image_response.headers['Content-Type']
-                bin_data = image_response.content
-                search_data['lc_image_part_no'] = page_number
-                search_data['image_data'] = bin_data
-                search_data['lc_image_size'] = size
-
-                # Right, now post that to the main database
-                uri = "{}/search_images".format(CONFIG['LEGACY_DB_URI'])
-                archive_response = requests.put(uri, data=search_data, headers={'Content-Type': content_type})
-                if archive_response.status_code != 200:
-                    raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
-
-            # If we've got here, then its on the legacy DB
-            uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
-            del_response = requests.delete(uri)
-            if del_response.status_code != 200:
-                raise SynchroniserError(uri + ' - ' + str(del_response.status_code))
+        # If we've got here, then its on the legacy DB
+        uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
+        del_response = requests.delete(uri)
+        if del_response.status_code != 200:
+            raise SynchroniserError(uri + ' - ' + str(del_response.status_code))
 
 
 def create_search_name(search_name):
@@ -564,9 +569,9 @@ def create_search_name(search_name):
     elif search_name['type'] == 'Limited Company':
         name = search_name['company']
     elif search_name['type'] == 'Complex':
-        name = search_name['complex']['number'] + '*' + search_name['complex']['name']
+        name = str(search_name['complex']['number']) + '*' + search_name['complex']['name']
     elif search_name['type'] == 'Coded Name':
-        name = search_name['other']
+        name = '9999924*' + search_name['other']
     elif search_name['type'] == 'Other':
         name = search_name['other']
     else:
