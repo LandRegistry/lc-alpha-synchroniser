@@ -528,7 +528,6 @@ def receive_searches(application):
         form = form_response.json()
         logging.info('Processing form for search %d', search_id)
         for image in form['images']:
-            search_data = {}
             page_number = image['page']
             logging.info("  Page %d", page_number)
             uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], page_number)
@@ -540,19 +539,18 @@ def receive_searches(application):
             content_type = image_response.headers['Content-Type']
             bin_data = image_response.content
             search_data['lc_image_part_no'] = page_number
-            search_data['image_data'] = bin_data
+            # search_data['image_data'] = bin_data
             search_data['lc_image_size'] = len(bin_data)
             search_data['lc_image_scan_date'] = datetime.now().strftime('%Y-%m-%d')
 
             # Right, now post that to the main database
             uri = "{}/search_images".format(CONFIG['LEGACY_DB_URI'])
-            archive_response = requests.put(uri, data=search_data, headers={'Content-Type': content_type})
+            archive_response = requests.put(uri, data=json.dumps(search_data), headers={'Content-Type': content_type})
             if archive_response.status_code != 200:
                 raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
             else:
-                search_data['lc_image_id'] = int(archive_response.text)
-                print('********lc_image_id*******')
-                print(search_data['lc_image_id'])
+                result = json.loads(archive_response.text)
+                search_data['lc_image_id'] = result['lc_image_id']
 
         # If we've got here, then its on the legacy DB
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
