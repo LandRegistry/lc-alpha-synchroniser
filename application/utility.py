@@ -30,7 +30,7 @@ def string_encode(text):
         code = (punc << 5) + length
         codes += '{:02x}'.format(code)
 
-        search = re.search(r"'|\s|\*", text)
+        search = re.search(r"['&\s\-\(\)\*\?]", text)
 
     mashed += text
 

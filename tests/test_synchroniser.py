@@ -3,8 +3,8 @@ from unittest import mock
 import requests
 import os
 from application.utility import encode_name, address_to_string, residences_to_string
-from application.utility import name_to_string, occupation_string
-from application.listener import SynchroniserError, compare_names
+from application.utility import name_to_string, occupation_string, encode_name
+from application.sync import SynchroniserError, compare_names
 import json
 
 # Can't use data from production system (non-public data); can't tell which pre-prod data is copied from production.
@@ -28,18 +28,18 @@ test_names = [
 ]
 
 test_address = {
-    "input": {"address_lines": ["4144 Considine Burgs", "Hilllton", "West Ima", "Clwyd"]},
-    "expected": "4144 Considine Burgs Hilllton West Ima Clwyd"
+    "input": {"address_lines": ["4144 Considine Burgs", "Hilllton", "West Ima"], "county": "Clwyd", "postcode": "1AA AA1"},
+    "expected": "4144 Considine Burgs Hilllton West Ima 1AA AA1 Clwyd".upper()
 }
 
 test_residence = {
     "input": {
         "addresses": [
-            {"type": "Residence", "address_lines": ["29 Zemlak Street", "East Dallasview", "Fife", "WK43 2YR"]},
-            {"type": "Residence", "address_lines": ["278 Keaton Estates", "East Hyman", "Cleveland", "UY76 5DC"]}
+            {"type": "Residence", "address_lines": ["29 Zemlak Street", "East Dallasview"], "postcode": "WK43 2YR", "county": "Fife"},
+            {"type": "Residence", "address_lines": ["278 Keaton Estates", "East Hyman"], "postcode": "UY76 5DC", "county": "Cleveland"}
         ]
     },
-    "expected": "29 Zemlak Street East Dallasview Fife WK43 2YR   278 Keaton Estates East Hyman Cleveland UY76 5DC"
+    "expected": "29 Zemlak Street East Dallasview WK43 2YR Fife   278 Keaton Estates East Hyman UY76 5DC Cleveland".upper()
 }
 
 test_occupation = [
@@ -264,3 +264,14 @@ class TestSynchroniser:
             'forenames': ['Bob', 'Oscar']
         }]
         assert compare_names(name1, name2) == False
+
+    def test_hyphenated_names(self):
+        name = {
+            "private": {
+                "forenames": ["Dave", "Samuel"],
+                "surname": "Smith-Smythe"
+            }
+        }
+        coded = encode_name(name)
+        assert coded['remainder_name'] == 'DAVESAMUE'
+        assert coded['coded_name'] == 'EHTYMSHTIMSL'

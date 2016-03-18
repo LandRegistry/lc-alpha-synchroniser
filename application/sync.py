@@ -15,39 +15,46 @@ CONFIG = {}
 
 
 def create_legacy_data(data):
-    app_type = data['class_of_charge']
+    app_type = class_to_roman(data['class_of_charge'])
 
     legacy_object = {
         'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
         'registration_no': str(data['registration']['number']).rjust(8),
-        'priority_notice': '',  # TODO: Priority Notice
+        'priority_notice': '',
         'registration_date': data['registration']['date'],
         'class_type': app_type,
-        'priority_notice_ref': ''
+        'priority_notice_ref': '',
+        'amendment_info': data['additional_info'].upper()
     }
 
     eo_party = get_eo_party(data)
+
     if data['class_of_charge'] in ['PAB', 'WOB']:
         legacy_object['address'] = residences_to_string(eo_party)
         legacy_object['property_county'] = ''
         legacy_object['counties'] = ''
         legacy_object['parish_district'] = ''
         legacy_object['property'] = ''
-        legacy_object['amendment_info'] = get_amendment_text(data)
-    elif data['class_of_charge'] in ['PA', 'WO']:
-        legacy_object['address'] = ''
-        legacy_object['property_county'] = ""
-        legacy_object['counties'] = data['particulars']['counties'][0].upper()
-        legacy_object['parish_district'] = data['particulars']['district']
-        legacy_object['property'] = data['particulars']['description']
-        legacy_object['amendment_info'] = ''
+
     else:
+        if 'priority_notice' in data['particulars']:
+            legacy_object['priority_notice_ref'] = data['particulars']['priority_notice']
+
+        if 'priority_notice' in data and 'expires' in data['priority_notice']:
+            legacy_object['priority_notice'] = 'P'
+
         legacy_object['address'] = ''
-        legacy_object['property_county'] = data['particulars']['counties'][0].upper()
-        legacy_object['counties'] = ''
-        legacy_object['parish_district'] = data['particulars']['district']
-        legacy_object['property'] = data['particulars']['description']
-        legacy_object['amendment_info'] = ''
+        legacy_object['parish_district'] = data['particulars']['district'].upper()
+        legacy_object['property'] = data['particulars']['description'].upper()
+
+        if data['class_of_charge'] in ['PA', 'WO']:
+            legacy_object['property_county'] = ""
+            legacy_object['counties'] = data['particulars']['counties'][0].upper()
+
+        else:
+            legacy_object['property_county'] = data['particulars']['counties'][0].upper()
+            legacy_object['counties'] = ''
+
 
     # Only sync the top name/county...
     eo_name = eo_party['names'][0]
@@ -244,7 +251,7 @@ def receive_new_regs(body):
 def create_lc_row(converted):
     logging.info('PUT ' + json.dumps(converted))
     put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
-                                  data=json.dumps(converted), headers={'Content-Type': 'application/json'})
+                                data=json.dumps(converted), headers={'Content-Type': 'application/json'})
     return put_response
 
             
@@ -473,6 +480,7 @@ def receive_amendment(body):
     #
     #     a_type = get_amendment_type(regn)
     #     create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, a_type)
+
 
 def receive_searches(application):
     # for application in body:
