@@ -6,12 +6,26 @@ import requests
 import json
 import kombu
 import logging
-import re
+import getpass
 from datetime import datetime
 import traceback
 
 
 CONFIG = {}
+
+
+def get_username():
+    return "{}({})".format(
+        getpass.getuser(),
+        CONFIG['APPLICATION_NAME']
+    )
+
+
+def get_headers(headers=None):
+    if headers is None:
+        headers = {}
+
+    headers['X-LC-Username'] = get_username()
 
 
 def create_legacy_data(data):
@@ -126,7 +140,7 @@ def create_legacy_data(data):
         hex_append = 'F3'
         
     elif eo_name['type'] == 'Coded Name':
-        cnum_hex = hex("9999924")[2:].zfill(6).upper()
+        cnum_hex = hex(9999924)[2:].zfill(6).upper()
         hex_string = 'F9' + cnum_hex + '00000000000000F3'
         encoded_name = {
             'coded_name': hex_string,
@@ -165,7 +179,7 @@ def create_legacy_data(data):
 
 def get_registration(number, date):
     url = CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number)
-    response = requests.get(url)
+    response = requests.get(url, headers=get_headers())
     if response.status_code != 200:
         raise SynchroniserError('Unexpected response {} from {}'.format(response.status_code, url))
     return response.json()
@@ -173,14 +187,14 @@ def get_registration(number, date):
 
 def move_images(number, date, coc):
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
-    doc_response = requests.get(uri)
+    doc_response = requests.get(uri, headers=get_headers())
     if doc_response.status_code != 200:
         raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
 
     document = doc_response.json()
 
     uri = '{}/forms/{}'.format(CONFIG['CASEWORK_API_URI'], document['document_id'])
-    form_response = requests.get(uri)
+    form_response = requests.get(uri, headers=get_headers())
 
     if form_response.status_code != 200:
         raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
@@ -192,7 +206,7 @@ def move_images(number, date, coc):
         logging.info("  Page %d", page_number)
         size = image['size']
         uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], page_number)
-        image_response = requests.get(uri)
+        image_response = requests.get(uri, headers=get_headers())
 
         if image_response.status_code != 200:
             raise SynchroniserError(uri + ' - ' + str(image_response.status_code))
@@ -203,13 +217,13 @@ def move_images(number, date, coc):
         # Right, now post that to the main database
         class_of_charge = coc
         uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
-        archive_response = requests.put(uri, data=bin_data, headers={'Content-Type': content_type})
+        archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
         if archive_response.status_code != 200:
             raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
 
     # If we've got here, then its on the legacy DB
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
-    del_response = requests.delete(uri)
+    del_response = requests.delete(uri, headers=get_headers())
     if del_response.status_code != 200:
         raise SynchroniserError(uri + ' - ' + str(del_response.status_code))
 
@@ -223,7 +237,7 @@ def receive_new_regs(body):
         logging.info("-----------------------------------------------")
         logging.info("Process registration %d/%s", number, date)
 
-        response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number))
+        response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number), headers=get_headers())
         if response.status_code != 200:
             logging.error("GET /registrations/{} - {}", number, response.status_code)
             raise SynchroniserError("Unexpected response {} on GET /registrations/{}/{}".format(
@@ -251,7 +265,7 @@ def receive_new_regs(body):
 def create_lc_row(converted):
     logging.info('PUT ' + json.dumps(converted))
     put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
-                                data=json.dumps(converted), headers={'Content-Type': 'application/json'})
+                                data=json.dumps(converted), headers=get_headers({'Content-Type': 'application/json'}))
     return put_response
 
             
@@ -271,7 +285,7 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
     logging.debug(json.dumps(doc_row))
     put = requests.put(url,
                        data=json.dumps(doc_row),
-                       headers={'Content-Type': 'application/json'})
+                       headers=get_headers({'Content-Type': 'application/json'}))
     logging.info('PUT %s - %s', url, str(put.status_code))
     if put.status_code != 200:
         raise SynchroniserError('PUT /doc_info - ' + str(put.status_code))
@@ -280,7 +294,7 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
 
 def delete_lc_row(number, date, class_of_charge):
     resource = "/{}/{}/{}".format(number, date, class_to_roman(class_of_charge))
-    delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource)
+    delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource, headers=get_headers())
     if delete.status_code != 200:
         logging.error('DELETE /land_charges - %s', str(delete.status_code))
         raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
@@ -296,7 +310,7 @@ def get_full_regn_key(regn):
 
 def get_history(number, date):
     url = CONFIG['REGISTER_URI'] + '/history/' + date + '/' + str(number)
-    response = requests.get(url)
+    response = requests.get(url, headers=get_headers())
     if response.status_code != 200:
         raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
     return json.loads(response.text)
@@ -319,18 +333,11 @@ def receive_cancellation(body):
         for reg in original_record['registrations']:
             oreg = get_registration(reg['number'], reg['date'])
             original_registrations.append(oreg)
-            # oreq = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + reg['date'] + '/' + str(reg['number']))
-            # original_registrations.append(json.loads(oreq.text))
 
         for item in history:
             for reg in item['registrations']:
                 delete_lc_row(reg['number'], reg['date'], item['class_of_charge'])
 
-                # resource = "/{}/{}/{}".format(reg['number'], reg['date'], class_to_numeric(item['class_of_charge']))
-                # delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource)
-                # if delete.status_code != 200:
-                #     logging.error('DELETE /land_charges - %s', str(delete.status_code))
-                #     raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
     else:
         raise SynchroniserError("Unexpected lack of data for id {}".format(body['id']))
 
@@ -344,8 +351,6 @@ def receive_cancellation(body):
         number = ref['number']
         date = ref['date']
         registration = get_registration(number, date)
-        #     requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number))
-        # registration = json.loads(registration.text)
         move_images(number, date, registration['class_of_charge'])
 
         resource = "/{}/{}/{}".format(registration['registration']['number'],
@@ -437,50 +442,6 @@ def receive_amendment(body):
                 }
             }, 'NR')
 
-    # for each index, current:
-    #   move image
-    #   add to leg-land-charge
-    #   if current has corresponding pred:
-    #       add doc_info (AM)
-    #   else
-    #       add doc_info (NR)
-    pass
-
-
-    # logging.debug(body)
-    # for new_reg in body['data']:
-    #     new_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + new_reg['date'] + '/' + str(new_reg['number']))
-    #     regn = new_get.json()
-    #
-    #     logging.debug(regn)
-    #     old_reg = {
-    #         'number': regn['amends_registration']['number'],
-    #         'date': regn['amends_registration']['date']
-    #     }
-    #
-    #     logging.info(old_reg)
-    #     logging.info(new_reg)
-    #     move_images(regn['registration']['number'], regn['registration']['date'], regn['class_of_charge'])
-    #
-    #     old_get = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + old_reg['date'] + '/' + str(old_reg['number']))
-    #
-    #     oregn = old_get.json()
-    #     if not oregn['revealed']:
-    #         logging.info('DELETING %d %s', oregn['registration']['number'], oregn['registration']['date'])
-    #         requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges/{}/{}/{}'.format(oregn['registration']['number'],
-    #                                                                                   oregn['registration']['date'],
-    #                                                                                   oregn['class_of_charge']))
-    #     converted = create_legacy_data(regn)
-    #     requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
-    #                  data=json.dumps(converted), headers={'Content-Type': 'application/json'})
-    #
-    #     res = '/{}/{}/{}'.format(regn['registration']['number'],
-    #                              regn['registration']['date'],
-    #                              class_to_numeric(regn['class_of_charge']))
-    #
-    #     a_type = get_amendment_type(regn)
-    #     create_document_row(res, regn['registration']['number'], regn['registration']['date'], oregn, a_type)
-
 
 def receive_searches(application):
     # for application in body:
@@ -490,7 +451,7 @@ def receive_searches(application):
     logging.info("-----------------------------------------------")
     logging.info("Process search id %d", search_id)
 
-    response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + str(request_id))
+    response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + str(request_id), headers=get_headers())
     if response.status_code != 200:
         logging.error("GET /request_details/{} - {}", request_id, response.status_code)
         raise SynchroniserError("Unexpected response {} on GET /request_details/{}".format(
@@ -522,14 +483,14 @@ def receive_searches(application):
 
 
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
-        doc_response = requests.get(uri)
+        doc_response = requests.get(uri, headers=get_headers())
         if doc_response.status_code != 200:
             raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
 
         document = doc_response.json()
 
         uri = '{}/forms/{}'.format(CONFIG['CASEWORK_API_URI'], document['document_id'])
-        form_response = requests.get(uri)
+        form_response = requests.get(uri, headers=get_headers())
 
         if form_response.status_code != 200:
             raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
@@ -540,7 +501,7 @@ def receive_searches(application):
             page_number = image['page']
             logging.info("  Page %d", page_number)
             uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], page_number)
-            image_response = requests.get(uri)
+            image_response = requests.get(uri, headers=get_headers())
 
             if image_response.status_code != 200:
                 raise SynchroniserError(uri + ' - ' + str(image_response.status_code))
@@ -555,13 +516,13 @@ def receive_searches(application):
             uri = "{}/search_images/{}/{}/{}/{}/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], cust_ref, desp_name_addr,
                                                                  key_no_cust, lc_srch_appn_form, lc_search_name,
                                                                  image_size, image_scan_date)
-            archive_response = requests.put(uri, data=bin_data, headers={'Content-Type': content_type})
+            archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
             if archive_response.status_code != 200:
                 raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
 
         # If we've got here, then its on the legacy DB
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
-        del_response = requests.delete(uri)
+        del_response = requests.delete(uri, headers=get_headers())
         if del_response.status_code != 200:
             raise SynchroniserError(uri + ' - ' + str(del_response.status_code))
 
@@ -622,7 +583,7 @@ def get_entries_for_sync(date):
 def get_search_entries_for_sync(date):
     logging.info('Get entries for date %s', date)
     url = CONFIG['REGISTER_URI'] + '/searches/' + date
-    response = requests.get(url)
+    response = requests.get(url, headers=get_headers())
     if response.status_code == 200:
         return response.json()
     elif response.status_code != 404:
