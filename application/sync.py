@@ -573,7 +573,7 @@ def create_search_name(search_name):
         name = search_name['other']
     elif search_name['type'] == 'Limited Company':
         name = search_name['company']
-    elif search_name['type'] == 'Complex':
+    elif search_name['type'] == 'Complex Name':
         name = str(search_name['complex']['number']) + '*' + search_name['complex']['name']
     elif search_name['type'] == 'Coded Name':
         name = '9999924*' + search_name['other']
