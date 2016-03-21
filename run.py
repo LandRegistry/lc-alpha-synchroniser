@@ -21,6 +21,9 @@ for key in dir(c):
         config[key] = getattr(c, key)
 
 setup_logging(config)
-synchronise(config, d)
+if synchronise(config, d):
+    exit(0)
+exit(1)
+
 
 

@@ -38,7 +38,7 @@ def create_legacy_data(data):
         'registration_date': data['registration']['date'],
         'class_type': app_type,
         'priority_notice_ref': '',
-        'amendment_info': data['additional_info'].upper()
+        'amendment_info': data['additional_information'].upper()
     }
 
     eo_party = get_eo_party(data)
@@ -652,6 +652,8 @@ def synchronise(config, date):
     logging.info("Synchroniser finishes")
     if there_were_errors:
         logging.error("There were errors")
+
+    return not there_were_errors
 
 
 def log_stack():
