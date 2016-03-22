@@ -7,6 +7,7 @@ import json
 import kombu
 import logging
 import getpass
+import re
 from datetime import datetime
 import traceback
 
@@ -67,7 +68,10 @@ def create_legacy_data(data):
             legacy_object['counties'] = data['particulars']['counties'][0].upper()
 
         else:
-            legacy_object['property_county'] = data['particulars']['counties'][0].upper()
+            county = data['particulars']['counties'][0].upper()
+            county = re.sub("(.*) \(CITY OF\)", r"CITY OF \1", county)
+
+            legacy_object['property_county'] = county
             legacy_object['counties'] = ''
 
 
