@@ -198,6 +198,7 @@ def get_registration(number, date):
 
 
 def move_images(number, date, coc):
+    logging.info("Moving image: %d, %s", number, date)
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
     doc_response = requests.get(uri, headers=get_headers())
     if doc_response.status_code == 404:
