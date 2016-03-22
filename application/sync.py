@@ -603,7 +603,7 @@ def synchronise(config, date):
 
     entries = get_entries_for_sync(date)
     search_entries = get_search_entries_for_sync(date)
-    logging.info("Synchroniser starts")
+    logging.info("Synchroniser starts for date %s", date)
     logging.info("%d Entries received", len(entries))
     logging.info("%d Search Entries received", len(search_entries))
 
