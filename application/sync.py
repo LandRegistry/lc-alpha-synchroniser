@@ -26,7 +26,6 @@ def get_headers(headers=None):
         headers = {}
 
     headers['X-LC-Username'] = get_username()
-    return headers
 
 
 def create_legacy_data(data):
@@ -89,6 +88,16 @@ def create_legacy_data(data):
         hex_append = "01"
         occupation = ''
 
+    elif eo_name['type'] == 'Rural Council':
+        encoded_name = {
+            'coded_name': eo_name['search_key'][:11],
+            'remainder_name': eo_name['search_key'][12:],
+            'name': eo_name['local']['name'].upper(),
+            'hex_code': ''
+        }
+        hex_append = "02"
+        occupation = ''
+
     elif eo_name['type'] == 'Parish Council':
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
@@ -139,6 +148,7 @@ def create_legacy_data(data):
             'hex_code': ''
         }
         hex_append = 'F3'
+        occupation = ''
         
     elif eo_name['type'] == 'Coded Name':
         cnum_hex = hex(9999924)[2:].zfill(6).upper()
@@ -150,6 +160,7 @@ def create_legacy_data(data):
             'hex_code': ''
         }
         hex_append = 'F3'
+        occupation = ''
 
     elif eo_name['type'] == 'Other':
         if eo_name['subtype'] == 'A':  # VARNAM A
@@ -189,6 +200,12 @@ def get_registration(number, date):
 def move_images(number, date, coc):
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
     doc_response = requests.get(uri, headers=get_headers())
+    if doc_response.status_code == 404:
+        # It's quite likely that the documents have already been migrated. This is quite
+        # common in test environments.
+        logging.warning("No registered forms found for {} of {}".format(number, date))
+        return
+
     if doc_response.status_code != 200:
         raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
 
@@ -219,9 +236,7 @@ def move_images(number, date, coc):
         class_of_charge = coc
         logging.info('Content-Type: ' + content_type)
         uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
-        hdrs = get_headers({'Content-Type': content_type})
-        logging.info(hdrs)
-        archive_response = requests.put(uri, data=bin_data, headers=hdrs)
+        archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
         if archive_response.status_code != 200:
             raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, archive_response.status_code, archive_response.text))
 
@@ -258,7 +273,7 @@ def receive_new_regs(body):
             if put_response.status_code == 200:
                 logging.debug('PUT /land_charges - OK')
             else:
-                # TODO: this causes the loop to break. Which is bad.
+                # TODO: this causes the (inner, new regs) loop to break. Which is bad.
                 raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}: ".format(
                                         put_response.status_code, number, date, put_response.text))
 
@@ -457,7 +472,7 @@ def receive_searches(application):
 
     response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + str(request_id), headers=get_headers())
     if response.status_code != 200:
-        logging.error("GET /request_details/{} - {}: {}".format(request_id, response.status_code, response.text))
+        logging.error("GET /request_details/{} - {}", request_id, response.status_code)
         raise SynchroniserError("Unexpected response {} on GET /request_details/{}".format(
             response.status_code, request_id))
     else:
@@ -484,6 +499,7 @@ def receive_searches(application):
         key_no_cust = key_no
         lc_srch_appn_form = form
         lc_search_name = name
+
 
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
         doc_response = requests.get(uri, headers=get_headers())
@@ -618,7 +634,7 @@ def synchronise(config, date):
                 receive_new_regs(entry)
             elif entry['application'] == 'Cancellation':
                 receive_cancellation(entry)
-            elif entry['application'] in ['Part Cancellation', 'Rectification', 'Amendment']:
+            elif entry['application'] in ['Part Cancellation', 'Rectification', 'Amendment', 'Renewal', 'Correction']:
                 receive_amendment(entry)
             else:
                 raise SynchroniserError('Unknown application type: {}'.format(entry['application']))
