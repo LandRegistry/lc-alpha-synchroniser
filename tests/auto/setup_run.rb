@@ -53,7 +53,7 @@ lc_private = '{"parties": [{"type": "Estate Owner","names":[{
 "class_of_charge": "C1",	
 "particulars": {"counties": ["Devon"],"district": "South Hams","description": "The House At The Beach"},
 "applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
-"reference": "ARGL1234567"},"additional_information": ""}'
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
 
 lc_private2 = '{"parties": [{"type": "Estate Owner","names":[{
 "type": "Private Individual","private": {"forenames": ["Sam", "William"],"surname": "Smith"}
@@ -61,7 +61,7 @@ lc_private2 = '{"parties": [{"type": "Estate Owner","names":[{
 "class_of_charge": "C2",	
 "particulars": {"counties": ["Devon"],"district": "South Hams","description": "The House At The Beach"},
 "applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
-"reference": "ARGL1234567"},"additional_information": ""}'
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
 
 
 
@@ -91,7 +91,7 @@ lc_private_v2 = '{"update_registration": {"type": "Rectification"}, "parties": [
 }]}],
 "class_of_charge": "C1",	
 "particulars": {"counties": ["Devon"],"district": "South Hams","description": "The House At The Beach"},
-"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321", "address_type": "RM",
 "reference": "ARGL1234567"},"additional_information": ""}'
 
 lc_private2_v2 = '{"update_registration": {"type": "Rectification"}, "parties": [{"type": "Estate Owner","names":[{
@@ -99,7 +99,7 @@ lc_private2_v2 = '{"update_registration": {"type": "Rectification"}, "parties": 
 }]}],
 "class_of_charge": "C2",	
 "particulars": {"counties": ["Devon"],"district": "South Hams","description": "The House Under the Water"},
-"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321", "address_type": "RM",
 "reference": "ARGL1234567"},"additional_information": ""}'
 
 puts "PUT Rectifications"

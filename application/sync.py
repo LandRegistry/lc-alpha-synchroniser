@@ -26,6 +26,7 @@ def get_headers(headers=None):
         headers = {}
 
     headers['X-LC-Username'] = get_username()
+    return headers
 
 
 def create_legacy_data(data):
@@ -218,7 +219,9 @@ def move_images(number, date, coc):
         class_of_charge = coc
         logging.info('Content-Type: ' + content_type)
         uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
-        archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
+        hdrs = get_headers({'Content-Type': content_type})
+        logging.info(hdrs)
+        archive_response = requests.put(uri, data=bin_data, headers=hdrs)
         if archive_response.status_code != 200:
             raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, archive_response.status_code, archive_response.text))
 
