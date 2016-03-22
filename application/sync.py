@@ -26,6 +26,7 @@ def get_headers(headers=None):
         headers = {}
 
     headers['X-LC-Username'] = get_username()
+    return headers
 
 
 def create_legacy_data(data):
@@ -237,7 +238,11 @@ def move_images(number, date, coc):
         class_of_charge = coc
         logging.info('Content-Type: ' + content_type)
         uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
-        archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
+
+        headers = get_headers({'Content-Type': content_type})
+        logging.info(headers)
+
+        archive_response = requests.put(uri, data=bin_data, headers=headers)
         if archive_response.status_code != 200:
             raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, archive_response.status_code, archive_response.text))
 
@@ -283,6 +288,23 @@ def receive_new_regs(body):
 
 
 def create_lc_row(converted):
+    get_resp = requests.get(CONFIG['LEGACY_DB_URI'] + '/land_charges/' + converted['registration_no'].strip(),
+                            params={"date": converted['registration_date'], "class": converted['class_type']})
+
+    if get_resp.status_code != 404:
+        logging.info("Already an entry on destination. Delete it.")
+        #  It exists, delete it...
+        del_resp = requests.delete("{}/land_charges/{}/{}/{}".format(
+            CONFIG['LEGACY_DB_URI'], converted['registration_no'].strip(),
+            converted['registration_date'], converted['class_type']))
+        logging.info("Deleting existing row: " + str(del_resp.status_code))
+
+        if del_resp.status_code != 200:
+            raise SynchroniserError("Failed to delete record: {}".format(del_resp.text))
+
+    elif get_resp.status_code != 200:
+        raise SynchroniserError("Unexpected response for GET /land_charge: {}".format(get_resp.text))
+
     logging.info('PUT ' + json.dumps(converted))
     put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
                                 data=json.dumps(converted), headers=get_headers({'Content-Type': 'application/json'}))
