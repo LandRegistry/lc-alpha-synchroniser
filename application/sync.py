@@ -181,7 +181,7 @@ def get_registration(number, date):
     url = CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number)
     response = requests.get(url, headers=get_headers())
     if response.status_code != 200:
-        raise SynchroniserError('Unexpected response {} from {}'.format(response.status_code, url))
+        raise SynchroniserError('Unexpected response {} from {}: '.format(response.status_code, url, response.text))
     return response.json()
 
 
@@ -209,7 +209,7 @@ def move_images(number, date, coc):
         image_response = requests.get(uri, headers=get_headers())
 
         if image_response.status_code != 200:
-            raise SynchroniserError(uri + ' - ' + str(image_response.status_code))
+            raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, image_response.status_code, image_response.text))
 
         content_type = image_response.headers['Content-Type']
         bin_data = image_response.content
@@ -219,13 +219,13 @@ def move_images(number, date, coc):
         uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
         archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
         if archive_response.status_code != 200:
-            raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
+            raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, archive_response.status_code, archive_response.text))
 
     # If we've got here, then its on the legacy DB
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
     del_response = requests.delete(uri, headers=get_headers())
     if del_response.status_code != 200:
-        raise SynchroniserError(uri + ' - ' + str(del_response.status_code))
+        raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, del_response.status_code, del_response.text))
 
 
 def receive_new_regs(body):
@@ -240,8 +240,8 @@ def receive_new_regs(body):
         response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number), headers=get_headers())
         if response.status_code != 200:
             logging.error("GET /registrations/{} - {}", number, response.status_code)
-            raise SynchroniserError("Unexpected response {} on GET /registrations/{}/{}".format(
-                                    response.status_code, date, number))
+            raise SynchroniserError("Unexpected response {} on GET /registrations/{}/{}: ".format(
+                                    response.status_code, date, number, response.text))
         else:
             logging.debug('Registration retrieved')
             body = response.json()
@@ -255,8 +255,8 @@ def receive_new_regs(body):
                 logging.debug('PUT /land_charges - OK')
             else:
                 # TODO: this causes the loop to break. Which is bad.
-                raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
-                                        put_response.status_code, number, date))
+                raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}: ".format(
+                                        put_response.status_code, number, date, put_response.text))
 
             coc = class_to_numeric(body['class_of_charge'])
             create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
@@ -345,7 +345,7 @@ def receive_cancellation(body):
     original_registrations = sorted(original_registrations, key=get_full_regn_key)
 
     if len(original_registrations) != len(body['data']):
-        raise SynchroniserError("Unable to process unmatches cancellation lengths")
+        raise SynchroniserError("Unable to process unmatched cancellation lengths")
 
     for index, ref in enumerate(body['data']):
         number = ref['number']
