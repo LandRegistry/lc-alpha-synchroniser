@@ -12,9 +12,6 @@ if len(sys.argv) == 2:
 else:
     d = datetime.now().strftime('%Y-%m-%d')
 
-print("Would sync " + d)
-exit(1)
-
 cfg = 'Config'
 c = getattr(importlib.import_module('config'), cfg)
 config = {}
