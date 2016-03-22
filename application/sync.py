@@ -457,7 +457,7 @@ def receive_searches(application):
 
     response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + str(request_id), headers=get_headers())
     if response.status_code != 200:
-        logging.error("GET /request_details/{} - {}", request_id, response.status_code)
+        logging.error("GET /request_details/{} - {}: {}".format(request_id, response.status_code, response.text))
         raise SynchroniserError("Unexpected response {} on GET /request_details/{}".format(
             response.status_code, request_id))
     else:
@@ -484,7 +484,6 @@ def receive_searches(application):
         key_no_cust = key_no
         lc_srch_appn_form = form
         lc_search_name = name
-
 
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
         doc_response = requests.get(uri, headers=get_headers())
