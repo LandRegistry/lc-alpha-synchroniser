@@ -156,7 +156,7 @@ def create_legacy_data(data):
         encoded_name = {
             'coded_name': hex_string,
             'remainder_name': '',
-            'name': eo_name['complex']['name'].upper(),
+            'name': eo_name['other'].upper(),
             'hex_code': ''
         }
         hex_append = 'F3'
@@ -479,13 +479,14 @@ def receive_searches(application):
     else:
         logging.debug('Search retrieved')
         body = response.json()
+        logging.debug(body)
         search_name = body['search_details'][0]['names'][0]
         name = create_search_name(search_name)
-        if body['key_number'] == '':
+        if body['applicant']['key_number'] == '':
             key_no = '%20'
-            despatch = body['customer_name'] + '*' + body['customer_address'].replace('\r\n', '*')
+            despatch = body['applicant']['name'] + '*' + body['applicant']['address'].replace('\r\n', '*')
         else:
-            key_no = body['key_number']
+            key_no = body['applicant']['key_number']
             despatch = '%20'
 
         if body['type'] == 'full':
@@ -493,7 +494,7 @@ def receive_searches(application):
         else:
             form = 'K16'
 
-        cust_ref = body['application_reference'].upper()
+        cust_ref = body['applicant']['reference'].upper()
         if cust_ref == ' ' or cust_ref == '':
             cust_ref = '%20'
         desp_name_addr = despatch.upper()
