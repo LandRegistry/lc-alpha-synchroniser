@@ -216,6 +216,7 @@ def move_images(number, date, coc):
 
         # Right, now post that to the main database
         class_of_charge = coc
+        logging.info('Content-Type: ' + content_type)
         uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
         archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
         if archive_response.status_code != 200:
