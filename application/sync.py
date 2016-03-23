@@ -86,7 +86,7 @@ def create_legacy_data(data):
     elif eo_name['type'] == 'County Council':
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
-            'remainder_name': eo_name['search_key'][12:],
+            'remainder_name': eo_name['search_key'][11:],
             'name': eo_name['local']['name'].upper(),
             'hex_code': ''
         }
@@ -96,7 +96,7 @@ def create_legacy_data(data):
     elif eo_name['type'] == 'Rural Council':
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
-            'remainder_name': eo_name['search_key'][12:],
+            'remainder_name': eo_name['search_key'][11:],
             'name': eo_name['local']['name'].upper(),
             'hex_code': ''
         }
@@ -106,7 +106,7 @@ def create_legacy_data(data):
     elif eo_name['type'] == 'Parish Council':
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
-            'remainder_name': eo_name['search_key'][12:],
+            'remainder_name': eo_name['search_key'][11:],
             'name': eo_name['local']['name'].upper(),
             'hex_code': ''
         }
@@ -116,7 +116,7 @@ def create_legacy_data(data):
     elif eo_name['type'] == 'Other Council':
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
-            'remainder_name': eo_name['search_key'][12:],
+            'remainder_name': eo_name['search_key'][11:],
             'name': eo_name['local']['name'].upper(),
             'hex_code': ''
         }
@@ -126,7 +126,7 @@ def create_legacy_data(data):
     elif eo_name['type'] == 'Development Corporation':
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
-            'remainder_name': eo_name['search_key'][12:],
+            'remainder_name': eo_name['search_key'][11:],
             'name': eo_name['other'].upper(),
             'hex_code': ''
         }
@@ -136,7 +136,7 @@ def create_legacy_data(data):
     elif eo_name['type'] == 'Limited Company':
         encoded_name = {
             'coded_name': eo_name['search_key'][:11],
-            'remainder_name': eo_name['search_key'][12:],
+            'remainder_name': eo_name['search_key'][11:],
             'name': eo_name['company'].upper(),
             'hex_code': ''
         }
@@ -175,7 +175,7 @@ def create_legacy_data(data):
         else:  # VARNAM B
             encoded_name = {
                 'coded_name': eo_name['search_key'][:11],
-                'remainder_name': eo_name['search_key'][12:],
+                'remainder_name': eo_name['search_key'][11:],
                 'name': eo_name['other'].upper(),
                 'hex_code': ''
             }
