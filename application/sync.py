@@ -531,6 +531,9 @@ def receive_searches(application):
 
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
         doc_response = requests.get(uri, headers=get_headers())
+        if doc_response.status_code == 404:
+            logging.warning("Form not found - assume previously synchronised")
+
         if doc_response.status_code != 200:
             raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
 
