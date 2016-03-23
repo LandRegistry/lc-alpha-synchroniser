@@ -40,7 +40,7 @@ def create_legacy_data(data):
         'registration_date': data['registration']['date'],
         'class_type': app_type,
         'priority_notice_ref': '',
-        'amendment_info': data['additional_information'].upper()
+        'amendment_info': data['additional_information'].upper()[0:254]
     }
 
     eo_party = get_eo_party(data)
@@ -80,7 +80,7 @@ def create_legacy_data(data):
 
     if eo_name['type'] == 'Private Individual':
         encoded_name = encode_name(eo_name)
-        occupation = occupation_string(eo_party)
+        occupation = occupation_string(eo_party)[0:254]
         hex_append = ''
 
     elif eo_name['type'] == 'County Council':

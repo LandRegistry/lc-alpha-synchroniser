@@ -110,7 +110,7 @@ def residences_to_string(party):
     for address in party['addresses']:
         if address['type'] == 'Residence':
             addresses += address_to_string(address) + "   "
-    return addresses.strip()
+    return addresses.strip()[0:254]
 
 
 def name_to_string(name):
