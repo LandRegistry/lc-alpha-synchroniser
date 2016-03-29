@@ -470,14 +470,16 @@ def receive_amendment(body):
             predecessor = previous_record['registrations'][index]
 
             res = "/{}/{}/{}".format(item['number'], item['date'], coc)
-            a_type = get_amendment_type(reg)
-            create_document_row(res, item['number'], item['date'], {
-                'class_of_charge': previous_record['class_of_charge'],
-                'registration': {
-                    'number': predecessor['number'],
-                    'date': predecessor['date']
-                }
-            }, a_type)
+
+            if reg['amends_registration']['type'] != 'Correction':  # No document row for corrections
+                a_type = get_amendment_type(reg)
+                create_document_row(res, item['number'], item['date'], {
+                    'class_of_charge': previous_record['class_of_charge'],
+                    'registration': {
+                        'number': predecessor['number'],
+                        'date': predecessor['date']
+                    }
+                }, a_type)
         else:
             res = "/{}/{}/{}".format(item['number'], item['date'], coc)
             create_document_row(res, item['number'], item['date'], {
