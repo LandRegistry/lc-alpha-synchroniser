@@ -13,6 +13,7 @@ import traceback
 
 
 CONFIG = {}
+documents_to_delete = []
 
 
 def get_username():
@@ -28,6 +29,24 @@ def get_headers(headers=None):
 
     headers['X-LC-Username'] = get_username()
     return headers
+
+
+def mark_for_delete(document_id):
+    global documents_to_delete
+    if document_id not in documents_to_delete:
+        documents_to_delete.append(document_id)
+
+
+# Documents have to be deleted at the end, to account for circumstances where
+# one image relates to multiple registrations
+def delete_documents():
+    for document_id in documents_to_delete:
+        uri = "{}/forms/{}".format(CONFIG['LEGACY_DB_URI'], document_id)
+        response = requests.delete(uri)
+        if response.status_code == 200:
+            logging.info("Deleted {}".format(document_id))
+        else:
+            logging.info("Failed to delete {} -- {}; {}".format(document_id, response.status_code, response.text))
 
 
 def create_legacy_data(data):
@@ -249,6 +268,8 @@ def move_images(number, date, coc):
         archive_response = requests.put(uri, data=bin_data, headers=headers)
         if archive_response.status_code != 200:
             raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, archive_response.status_code, archive_response.text))
+
+    mark_for_delete(document['document_id'])
 
     # If we've got here, then its on the legacy DB
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
@@ -698,6 +719,8 @@ def synchronise(config, date):
                 "type": "E"
             })
 
+    logging.info("Deleting moved documents...")
+    delete_documents()
 
     logging.info("Synchroniser finishes")
     if there_were_errors:

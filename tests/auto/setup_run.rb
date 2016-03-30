@@ -79,6 +79,7 @@ reg2_date = reg2['new_registrations'][0]['date']
 docid1 = create_reg_document(reg1_date, reg1_no)
 docid2 = create_reg_document(reg2_date, reg2_no)
 
+
 puts "==================================================="
 puts "  SYNC REGISTRATIONS"
 puts `synchronise 2010-04-01 2>&1`
@@ -120,7 +121,6 @@ reg2_date = reg2_2['new_registrations'][0]['date']
 puts "Fake documents"
 docid1 = create_reg_document(reg1_date, reg1_no)
 docid2 = create_reg_document(reg2_date, reg2_no)
-
 
 puts "==================================================="
 puts "  SYNC RECTIFICATIONS"
