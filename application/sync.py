@@ -544,13 +544,14 @@ def receive_searches(application):
         else:
             form = 'K16'
 
-        cust_ref = urllib.parse.quote_plus(body['applicant']['reference'].upper())
-        # if cust_ref == ' ' or cust_ref == '':
-        #     cust_ref = '%20'
-        desp_name_addr = urllib.parse.quote_plus(despatch.upper())
-        key_no_cust = urllib.parse.quote_plus(key_no)
-        lc_srch_appn_form = urllib.parse.quote_plus(form)
-        lc_search_name = urllib.parse.quote_plus(name)
+        cust_ref = body['applicant']['reference'].upper()
+        if cust_ref == '':
+            cust_ref = ' '
+        cust_ref = urllib.parse.quote(cust_ref, safe='')
+        desp_name_addr = urllib.parse.quote(despatch.upper(), safe='')
+        key_no_cust = urllib.parse.quote(key_no, safe='')
+        lc_srch_appn_form = urllib.parse.quote(form, safe='')
+        lc_search_name = urllib.parse.quote(name, safe='')
 
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
         doc_response = requests.get(uri, headers=get_headers())
