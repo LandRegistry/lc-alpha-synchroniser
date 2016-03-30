@@ -10,6 +10,7 @@ import getpass
 import re
 from datetime import datetime
 import traceback
+import urllib.parse
 
 
 CONFIG = {}
@@ -511,25 +512,24 @@ def receive_searches(application):
         search_name = body['search_details'][0]['names'][0]
         name = create_search_name(search_name)
         if body['applicant']['key_number'] == '':
-            key_no = '%20'
+            key_no = ' '
             despatch = body['applicant']['name'] + '*' + body['applicant']['address'].replace('\r\n', '*')
         else:
             key_no = body['applicant']['key_number']
-            despatch = '%20'
+            despatch = ' '
 
         if body['type'] == 'full':
             form = 'K15'
         else:
             form = 'K16'
 
-        cust_ref = body['applicant']['reference'].upper()
-        if cust_ref == ' ' or cust_ref == '':
-            cust_ref = '%20'
-        desp_name_addr = despatch.upper()
-        key_no_cust = key_no
-        lc_srch_appn_form = form
-        lc_search_name = name
-
+        cust_ref = urllib.parse.quote_plus(body['applicant']['reference'].upper())
+        # if cust_ref == ' ' or cust_ref == '':
+        #     cust_ref = '%20'
+        desp_name_addr = urllib.parse.quote_plus(despatch.upper())
+        key_no_cust = urllib.parse.quote_plus(key_no)
+        lc_srch_appn_form = urllib.parse.quote_plus(form)
+        lc_search_name = urllib.parse.quote_plus(name)
 
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
         doc_response = requests.get(uri, headers=get_headers())
