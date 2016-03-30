@@ -41,9 +41,9 @@ def mark_for_delete(document_id):
 # one image relates to multiple registrations
 def delete_documents():
     for document_id in documents_to_delete:
-        uri = "{}/forms/{}".format(CONFIG['LEGACY_DB_URI'], document_id)
+        uri = "{}/forms/{}".format(CONFIG['CASEWORK_API_URI'], document_id)
         response = requests.delete(uri)
-        if response.status_code == 200:
+        if response.status_code == 204:
             logging.info("Deleted {}".format(document_id))
         else:
             logging.info("Failed to delete {} -- {}; {}".format(document_id, response.status_code, response.text))
@@ -316,7 +316,7 @@ def create_lc_row(converted):
     get_resp = requests.get(CONFIG['LEGACY_DB_URI'] + '/land_charges/' + converted['registration_no'].strip(),
                             params={"date": converted['registration_date'], "class": converted['class_type']})
 
-    if get_resp.status_code != 404:
+    if get_resp.status_code == 200:
         logging.info("Already an entry on destination. Delete it.")
         #  It exists, delete it...
         del_resp = requests.delete("{}/land_charges/{}/{}/{}".format(
@@ -327,8 +327,8 @@ def create_lc_row(converted):
         if del_resp.status_code != 200:
             raise SynchroniserError("Failed to delete record: {}".format(del_resp.text))
 
-    elif get_resp.status_code != 200:
-        raise SynchroniserError("Unexpected response for GET /land_charge: {}".format(get_resp.text))
+    elif get_resp.status_code != 404:
+        raise SynchroniserError("Unexpected response for GET /land_charge: {}, {}".format(get_resp.status_code, get_resp.text))
 
     logging.info('PUT ' + json.dumps(converted))
     put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
@@ -629,6 +629,24 @@ def create_search_name(search_name):
     return name.upper()
 
 
+def get_entry_for_sync(date, reg_no):
+    logging.info('Get entries for %s %s', reg_no, date)
+    url = CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + reg_no
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return [{
+            "application": "new",
+            "data": [{
+                "class_of_charge": data['class_of_charge'],
+                "date": date,
+                "number": int(reg_no)
+            }]
+        }]
+    else:
+        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+
+
 def get_entries_for_sync(date):
     logging.info('Get entries for date %s', date)
     url = CONFIG['REGISTER_URI'] + '/registrations/' + date
@@ -638,19 +656,6 @@ def get_entries_for_sync(date):
     elif response.status_code != 404:
         raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
     return []
-
-    # return []
-
-    # return [{
-        # "application": "new",
-        # "data": [
-            # {
-                # "number": 1020,
-                # "date": "2016-02-11"
-            # }
-        # ],
-        # "id": 42476878765
-    # }]
 
 
 def get_search_entries_for_sync(date):
@@ -664,7 +669,7 @@ def get_search_entries_for_sync(date):
     return []
 
 
-def synchronise(config, date):
+def synchronise(config, date, reg_no=None):
     global CONFIG
     CONFIG = config
 
@@ -673,8 +678,13 @@ def synchronise(config, date):
     connection = kombu.Connection(hostname=hostname)
     producer = connection.SimpleQueue('errors')
 
-    entries = get_entries_for_sync(date)
-    search_entries = get_search_entries_for_sync(date)
+    if reg_no is None:  # Normal
+        entries = get_entries_for_sync(date)
+        search_entries = get_search_entries_for_sync(date)
+    else:  # For testing only at this time
+        entries = get_entry_for_sync(date, reg_no)
+        search_entries = []
+
     logging.info("Synchroniser starts for date %s", date)
     logging.info("%d Entries received", len(entries))
     logging.info("%d Search Entries received", len(search_entries))
