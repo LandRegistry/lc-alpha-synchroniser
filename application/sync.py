@@ -471,12 +471,29 @@ def receive_amendment(body):
         raise SynchroniserError("Unable to handle cancellation implied by len[current] < len[previous]")
 
     #  Remove the predecessors from leg-land-charge
-    for item in previous_record['registrations']:
-        delete_lc_row(item['number'], item['date'], previous_record['class_of_charge'])
+    if previous_record['reveal'] is False:
+        for item in previous_record['registrations']:
+            delete_lc_row(item['number'], item['date'], previous_record['class_of_charge'])
 
     for index, item in enumerate(current_record['registrations']):
         move_images(item['number'], item['date'], current_record['class_of_charge'])
         reg = get_registration(item['number'], item['date'])
+        logging.info('Synchronise %d %s', item['number'], item['date'])
+
+        if 'amends_registration' in reg and 'PAB' in reg['amends_registration']:
+            logging.info('Process WOB amendment impacting a PAB')
+            # Special case (yay) - need to see if the PAB affected by a WOB amendment should be 'dropped'
+            pab_ref = reg['amends_registration']['PAB']
+            m = re.match("(\d+)\((\d{4}\-\d+\-\d+)\)", pab_ref) # Nasty, but it's stored in one field
+            if m is not None:
+                number = m.group(1)
+                date = m.group(2)
+                pab_reg = get_registration(number, date)
+                if pab_reg['revealed'] is False:
+                    logging.info('Drop associated PAB: %s %s', number, date)
+                    delete_lc_row(number, date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
+                                                          # has affected anything not a PAB...
+
         converted = create_legacy_data(reg)
 
         put_response = create_lc_row(converted)
