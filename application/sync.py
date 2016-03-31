@@ -547,11 +547,12 @@ def receive_searches(application):
         cust_ref = body['applicant']['reference'].upper()
         if cust_ref == '':
             cust_ref = ' '
-        cust_ref = urllib.parse.quote(cust_ref, safe='')
-        desp_name_addr = urllib.parse.quote(despatch.upper(), safe='')
-        key_no_cust = urllib.parse.quote(key_no, safe='')
-        lc_srch_appn_form = urllib.parse.quote(form, safe='')
-        lc_search_name = urllib.parse.quote(name, safe='')
+
+        cust_ref = cust_ref
+        desp_name_addr = despatch.upper()
+        key_no_cust = key_no
+        lc_srch_appn_form = form
+        lc_search_name = name
 
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
         doc_response = requests.get(uri, headers=get_headers())
@@ -587,10 +588,20 @@ def receive_searches(application):
             image_scan_date = datetime.now().strftime('%Y-%m-%d')
 
             # Right, now post that to the main database
-            uri = "{}/search_images/{}/{}/{}/{}/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], cust_ref, desp_name_addr,
-                                                                 key_no_cust, lc_srch_appn_form, lc_search_name,
-                                                                 image_size, image_scan_date)
-            archive_response = requests.put(uri, data=bin_data, headers=get_headers({'Content-Type': content_type}))
+            data = {
+                "cust_ref": cust_ref,
+                "desp_name_addr": desp_name_addr,
+                "key_no_cust": key_no_cust,
+                "lc_srch_appn_form": lc_srch_appn_form,
+                "lc_srch_name": lc_search_name,
+                "image_size": image_size,
+                "image_scan_date": image_scan_date
+            }
+            uri = "{}/search_images".format(CONFIG['LEGACY_DB_URI'])
+            # uri = "{}/search_images/{}/{}/{}/{}/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], cust_ref, desp_name_addr,
+            #                                                      key_no_cust, lc_srch_appn_form, lc_search_name,
+            #                                                      image_size, image_scan_date)
+            archive_response = requests.put(uri, params={"data": json.dumps(data)}, data=bin_data, headers=get_headers({'Content-Type': content_type}))
             if archive_response.status_code != 200:
                 raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
 

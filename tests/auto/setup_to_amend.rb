@@ -34,7 +34,9 @@ end
 wob_registration = '{"class_of_charge": "WOB", "parties": [{"occupation": "Who Knows", "residence_withheld": false,
 "legal_body_ref_year": "2012", "names": [{"type": "Private Individual", "private": {"forenames": ["Virginie", "May"], 
 "surname": "Conn"}}, {"type": "Private Individual", "private": {"forenames": ["Virginia"], "surname": "Conn"}}], 
-"type": "Debtor", "addresses": [{"address_string": "1 Not Specified Blah PL1 1AA", "type": "Residence", "address_lines": ["1 Not Specified"], "postcode": "PL1 1AA", "county": "Blah"}], "case_reference": "Swindon 188 of 2012", "legal_body": "Swindon", "legal_body_ref_no": "188", "trading_name": " "}], "applicant": {"name": "S & H Legal Group", "reference": " ", "address": "49 Camille Circles Port Eulah PP39 6BY", "key_number": "1234567"}}'
+"type": "Debtor", "addresses": [{"address_string": "1 Not Specified Blah PL1 1AA", "type": "Residence",
+"address_lines": ["1 Not Specified"], "postcode": "PL1 1AA", "county": "Blah"}], "case_reference": "Swindon 188 of 2012",
+"legal_body": "Swindon", "legal_body_ref_no": "188", "trading_name": " "}], "applicant": {"name": "S & H Legal Group", "reference": " ", "address": "49 Camille Circles Port Eulah PP39 6BY", "key_number": "1234567"}}'
 
 lc_api = RestAPI.new($LAND_CHARGES_URI)
 reg1 = lc_api.post('/registrations?dev_date=2016-01-01', wob_registration)
