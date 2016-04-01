@@ -29,7 +29,7 @@ end
 
 `ruby /vagrant/apps/legacy-adapter/data/clear.rb`
 `reset-data`
-`synchronise 2014-07-02`
+puts `synchronise 2014-07-02 2>&1`
 
 cancel_1002 = '{"applicant": {"name": "S & H Legal Group", "reference": "sddsds", "address": "49 Camille Circles\r\nPort Eulah\r\nPP39 6BY", "key_number": "1234567"}, "document_id": 31, "registration": {"date": "2014-07-02"}, "registration_no": "1002", "update_registration": {"type": "Cancellation"}}'
 
@@ -40,5 +40,5 @@ reg1['cancellations'].each do |can|
     create_reg_document(can['date'], can['number'])
 end
 
-#puts `synchronise 2016-03-01 2>&1`
-puts "synchronise 2016-03-01"
+puts `synchronise 2016-04-01 2>&1`
+#puts "synchronise 2016-03-01"

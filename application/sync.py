@@ -8,7 +8,7 @@ import kombu
 import logging
 import getpass
 import re
-from datetime import datetime
+import datetime
 import traceback
 import urllib.parse
 
@@ -54,7 +54,7 @@ def create_legacy_data(data):
     app_type = class_to_roman(data['class_of_charge'])
 
     legacy_object = {
-        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
+        'time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'),
         'registration_no': str(data['registration']['number']).rjust(8),
         'priority_notice': '',
         'registration_date': data['registration']['date'],
@@ -314,6 +314,8 @@ def receive_new_regs(body):
 
 
 def create_lc_row(converted):
+    logging.info('Create LC row for %s %s %s', converted['class_type'],
+                 converted['registration_no'].strip(), converted['registration_date'])
     get_resp = requests.get(CONFIG['LEGACY_DB_URI'] + '/land_charges/' + converted['registration_no'].strip(),
                             params={"date": converted['registration_date'], "class": converted['class_type']})
 
@@ -332,12 +334,15 @@ def create_lc_row(converted):
         raise SynchroniserError("Unexpected response for GET /land_charge: {}, {}".format(get_resp.status_code, get_resp.text))
 
     logging.info('PUT ' + json.dumps(converted))
+
     put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
                                 data=json.dumps(converted), headers=get_headers({'Content-Type': 'application/json'}))
+    logging.info('Response: %d', put_response.status_code)
     return put_response
 
             
 def create_document_row(resource, reg_no, reg_date, body, app_type):
+    logging.info('Create document row for %s %d %s', app_type, reg_no, reg_date)
     doc_row = {
         'class': class_to_numeric(body['class_of_charge']),
         'reg_no': str(reg_no),
@@ -361,6 +366,7 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
 
 
 def delete_lc_row(number, date, class_of_charge):
+    logging.info('Delete LC row %d %s (%s)', number, date, class_of_charge)
     resource = "/{}/{}/{}".format(number, date, class_to_roman(class_of_charge))
     delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource, headers=get_headers())
     if delete.status_code != 200:
@@ -451,11 +457,35 @@ def get_amendment_type(new_reg):
         raise SynchroniserError("Unknown amendment type: {}".format(r_code))
 
 
-def receive_amendment(body):
+def has_expired(exp_date):
+    if exp_date is None:
+        return False
+
+    return datetime.datetime.strptime(exp_date, '%Y-%m-%d').date() <= datetime.date.today()
+
+
+def pab_amend_case(reg):
+    logging.info('Process WOB amendment impacting a PAB')
+    # Special case (yay) - need to see if the PAB affected by a WOB amendment should be 'dropped'
+    pab_ref = reg['amends_registration']['PAB']
+    m = re.match("(\d+)\((\d{4}\-\d+\-\d+)\)", pab_ref) # Nasty, but it's stored in one field
+    if m is not None:
+        number = m.group(1)
+        date = m.group(2)
+        pab_reg = get_registration(number, date)
+
+        if has_expired(pab_reg['expired_date']):
+            logging.info('Drop associated PAB: %s %s', number, date)
+            delete_lc_row(number, date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
+                                                  # has affected anything not a PAB..
+
+
+def receive_amendment(body, sync_date):
     # Get history from the first registration number
     if len(body['data']) == 0:
         raise SynchroniserError("Received empty amendment data list")
 
+    sync_date = datetime.datetime.strptime(sync_date, '%Y-%m-%d').date()
     number = body['data'][0]['number']
     date = body['data'][0]['date']
     history = get_history(number, date)
@@ -463,71 +493,119 @@ def receive_amendment(body):
     if len(history) <= 1:  #
         raise SynchroniserError("Received insufficient historical data for amendment")
 
-    current_record = history[0]                         # The first item is the amended (current) record
-    amendment_type = current_record['application']      # Get application_type from history[0]['application']
-    previous_record = history[1]                        # The second item is the predecessor
+    # current_record = history[0]                         # The first item is the amended (current) record
+    # amendment_type = current_record['application']      # Get application_type from history[0]['application']
+    # previous_record = history[1]                        # The second item is the predecessor
 
-    if len(current_record['registrations']) < len(previous_record['registrations']):
-        raise SynchroniserError("Unable to handle cancellation implied by len[current] < len[previous]")
+    for hist_index, item in enumerate(history):
 
-    #  Remove the predecessors from leg-land-charge
-    if previous_record['reveal'] is False:
-        for item in previous_record['registrations']:
-            delete_lc_row(item['number'], item['date'], previous_record['class_of_charge'])
+        if len(item['registrations']) < len(history[-1]['registrations']):
+            raise SynchroniserError("Unable to handle cancellation implied by len[current] < len[previous]")
 
-    for index, item in enumerate(current_record['registrations']):
-        move_images(item['number'], item['date'], current_record['class_of_charge'])
-        reg = get_registration(item['number'], item['date'])
-        logging.info('Synchronise %d %s', item['number'], item['date'])
+        for index, reg_summary in enumerate(item['registrations']):
+            reg = get_registration(reg_summary['number'], reg_summary['date'])
+            reg_date = datetime.datetime.strptime(reg_summary['date'], '%Y-%m-%d').date()
 
-        if 'amends_registration' in reg and 'PAB' in reg['amends_registration']:
-            logging.info('Process WOB amendment impacting a PAB')
-            # Special case (yay) - need to see if the PAB affected by a WOB amendment should be 'dropped'
-            pab_ref = reg['amends_registration']['PAB']
-            m = re.match("(\d+)\((\d{4}\-\d+\-\d+)\)", pab_ref) # Nasty, but it's stored in one field
-            if m is not None:
-                number = m.group(1)
-                date = m.group(2)
-                pab_reg = get_registration(number, date)
-                if pab_reg['revealed'] is False:
-                    logging.info('Drop associated PAB: %s %s', number, date)
-                    delete_lc_row(number, date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
-                                                          # has affected anything not a PAB...
+            if reg_date == sync_date:  # 'today' as far as sync is concerned
+                move_images(reg_summary['number'], reg_summary['date'], reg['class_of_charge'])
+                if 'amends_registration' in reg and 'PAB' in reg['amends_registration']:
+                    pab_amend_case(reg)
 
-        converted = create_legacy_data(reg)
+                #  Something new; if revealed, make LC row
+                if not has_expired(reg['expired_date']):
+                    logging.info("%s %d %s is current", reg['class_of_charge'], reg_summary['number'], reg_summary['date'])
+                    put_response = create_lc_row(create_legacy_data(reg))
+                    if put_response.status_code != 200:
+                        raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
+                                                put_response.status_code, number, date))
 
-        put_response = create_lc_row(converted)
-        if put_response.status_code == 200:
-            logging.debug('PUT /land_charges - OK')
-        else:
-            # TODO: this causes the loop to break. Which is bad.
-            raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
-                                    put_response.status_code, number, date))
-        coc = class_to_numeric(current_record['class_of_charge'])
+                #  Create document row regardless, unless a correction
+                if reg['amends_registration']['type'] != 'Correction':
+                    original = history[-1]
+                    if index < len(original['registrations']):
+                        predecessor = original['registrations'][index]
+                    else:
+                        predecessor = original['registrations'][0]
 
-        if index < len(previous_record['registrations']):
-            predecessor = previous_record['registrations'][index]
+                    coc = class_to_numeric(reg['class_of_charge'])
+                    res = "/{}/{}/{}".format(reg_summary['number'], reg_summary['date'], coc)
 
-            res = "/{}/{}/{}".format(item['number'], item['date'], coc)
+                    create_document_row(res, reg_summary['number'], reg_summary['date'], {
+                        'class_of_charge': original['class_of_charge'],
+                        'registration': {'number': predecessor['number'],'date': predecessor['date']}
+                    }, get_amendment_type(reg))
 
-            if reg['amends_registration']['type'] != 'Correction':  # No document row for corrections
-                a_type = get_amendment_type(reg)
-                create_document_row(res, item['number'], item['date'], {
-                    'class_of_charge': previous_record['class_of_charge'],
-                    'registration': {
-                        'number': predecessor['number'],
-                        'date': predecessor['date']
-                    }
-                }, a_type)
-        else:
-            res = "/{}/{}/{}".format(item['number'], item['date'], coc)
-            create_document_row(res, item['number'], item['date'], {
-                'class_of_charge': previous_record['class_of_charge'],
-                'registration': {
-                    'number': item['number'],
-                    'date': item['date']
-                }
-            }, 'NR')
+            elif reg_date < sync_date:
+                #  Something old; if not revealed, remove LC row if it exists
+                if has_expired(reg['expired_date']):
+                    logging.info("%s %d %s has expired", reg['class_of_charge'], reg_summary['number'], reg_summary['date'])
+                    delete_lc_row(reg_summary['number'], reg_summary['date'], reg['class_of_charge'])
+
+                #  If revealed, replace LC row as appropriate (some fields like addl info may change)
+                else:
+                    put_response = create_lc_row(create_legacy_data(reg))
+                    if put_response.status_code != 200:
+                        raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
+                                                put_response.status_code, number, date))
+
+                # Documents do not change
+            else:
+                raise SynchroniserError('Error: synchronising records from the future') # Or being run for a past day
+
+
+    #
+    # if has_expired(previous_record['expired_date']):
+    #     for item in previous_record['registrations']:
+    #         delete_lc_row(item['number'], item['date'], previous_record['class_of_charge'])
+    #
+    # for index, item in enumerate(current_record['registrations']):
+    #     move_images(item['number'], item['date'], current_record['class_of_charge'])
+    #     reg = get_registration(item['number'], item['date'])
+    #     logging.info('Synchronise %d %s', item['number'], item['date'])
+    #
+    #     if 'amends_registration' in reg and 'PAB' in reg['amends_registration']:
+    #         logging.info('Process WOB amendment impacting a PAB')
+    #         # Special case (yay) - need to see if the PAB affected by a WOB amendment should be 'dropped'
+    #         pab_ref = reg['amends_registration']['PAB']
+    #         m = re.match("(\d+)\((\d{4}\-\d+\-\d+)\)", pab_ref) # Nasty, but it's stored in one field
+    #         if m is not None:
+    #             number = m.group(1)
+    #             date = m.group(2)
+    #             pab_reg = get_registration(number, date)
+    #
+    #             if has_expired(pab_reg['expired_date']):
+    #                 logging.info('Drop associated PAB: %s %s', number, date)
+    #                 delete_lc_row(number, date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
+    #                                                       # has affected anything not a PAB...
+    #
+    #     converted = create_legacy_data(reg)
+    #
+    #     put_response = create_lc_row(converted)
+    #     if put_response.status_code == 200:
+    #         logging.debug('PUT /land_charges - OK')
+    #     else:
+    #         # TODO: this causes the loop to break. Which is bad.
+    #         raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
+    #                                 put_response.status_code, number, date))
+    #     coc = class_to_numeric(current_record['class_of_charge'])
+    #
+    #     if index < len(previous_record['registrations']):
+    #         predecessor = previous_record['registrations'][index]
+    #
+    #         res = "/{}/{}/{}".format(item['number'], item['date'], coc)
+    #
+    #         if reg['amends_registration']['type'] != 'Correction':  # No document row for corrections
+    #             a_type = get_amendment_type(reg)
+    #             create_document_row(res, item['number'], item['date'], {
+    #                 'class_of_charge': previous_record['class_of_charge'],
+    #                 'registration': {'number': predecessor['number'],'date': predecessor['date']}
+    #             }, a_type)
+    #     else:
+    #         res = "/{}/{}/{}".format(item['number'], item['date'], coc)
+    #         create_document_row(res, item['number'], item['date'], {
+    #             'class_of_charge': previous_record['class_of_charge'],
+    #             'registration': {'number': item['number'], 'date': item['date']}
+    #         }, 'NR')
 
 
 def receive_searches(application):
@@ -602,7 +680,7 @@ def receive_searches(application):
             bin_data = image_response.content
 
             image_size = len(bin_data)
-            image_scan_date = datetime.now().strftime('%Y-%m-%d')
+            image_scan_date = datetime.datetime.now().strftime('%Y-%m-%d')
 
             # Right, now post that to the main database
             data = {
@@ -727,7 +805,7 @@ def synchronise(config, date, reg_no=None):
             elif entry['application'] == 'Cancellation':
                 receive_cancellation(entry)
             elif entry['application'] in ['Part Cancellation', 'Rectification', 'Amendment', 'Renewal', 'Correction']:
-                receive_amendment(entry)
+                receive_amendment(entry, date)
             else:
                 raise SynchroniserError('Unknown application type: {}'.format(entry['application']))
 
