@@ -41,8 +41,7 @@ def setup_error_queue(hostname):
 
 def run():
     logging.info('Run')
-    hostname = "amqp://{}:{}@{}:{}".format(app.config['MQ_USERNAME'], app.config['MQ_PASSWORD'],
-                                           app.config['MQ_HOSTNAME'], app.config['MQ_PORT'])
+    hostname = app.config['AMQP_URI']
     incoming_connection, incoming_consumer = setup_incoming(hostname)
     error_producer = setup_error_queue(hostname)
 

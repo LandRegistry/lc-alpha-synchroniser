@@ -702,8 +702,7 @@ def synchronise(config, date, reg_no=None):
     global CONFIG
     CONFIG = config
 
-    hostname = "amqp://{}:{}@{}:{}".format(CONFIG['MQ_USERNAME'], CONFIG['MQ_PASSWORD'],
-                                           CONFIG['MQ_HOSTNAME'], CONFIG['MQ_PORT'])
+    hostname = CONFIG['AMQP_URI']
     connection = kombu.Connection(hostname=hostname)
     producer = connection.SimpleQueue('errors')
 
