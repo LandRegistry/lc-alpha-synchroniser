@@ -175,22 +175,22 @@ def create_legacy_data(data):
         hex_append = 'F3'
         occupation = ''
         
-    elif eo_name['type'] == 'Coded Name':
-        cnum_hex = hex(9999924)[2:].zfill(6).upper()
-        hex_string = 'F9' + cnum_hex + '00000000000000F3'
-        encoded_name = {
-            'coded_name': hex_string,
-            'remainder_name': '',
-            'name': eo_name['other'].upper(),
-            'hex_code': ''
-        }
-        hex_append = 'F3'
-        occupation = ''
+    # elif eo_name['type'] == 'Coded Name':
+    #     cnum_hex = hex(9999924)[2:].zfill(6).upper()
+    #     hex_string = 'F9' + cnum_hex + '00000000000000F3'
+    #     encoded_name = {
+    #         'coded_name': hex_string,
+    #         'remainder_name': '',
+    #         'name': eo_name['other'].upper(),
+    #         'hex_code': ''
+    #     }
+    #     hex_append = 'F3'
+    #     occupation = ''
 
     elif eo_name['type'] == 'Other':
         if eo_name['subtype'] == 'A':  # VARNAM A
             encoded_name = encode_variant_a_name(eo_name['other'])
-            encoded_name['name'] = eo_name['other'].upper()
+            encoded_name['name'] = ''  # eo_name['other'].upper()
             hex_append = ""
         else:  # VARNAM B
             encoded_name = {
