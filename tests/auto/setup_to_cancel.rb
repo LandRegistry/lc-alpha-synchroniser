@@ -38,16 +38,27 @@ lc_private = '{"parties": [{"type": "Estate Owner","names":[{
 "applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
 "reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
 
+bk_private = '{"parties": [
+{"addresses":[{"type":"Residence","address_lines":["a"], "county":"Devon","postcode":"PP1 1PP"}],"occupation":"", "trading_name": "", "residence_withheld": false, "case_reference": "BK62636",
+"type": "Debtor","names":[{
+"type": "Private Individual","private": {"forenames": ["Bob", "Oscar", "Francis"],"surname": "Howard"}
+}]}],
+"class_of_charge": "WOB",	
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
+
 
 lc_api = RestAPI.new($LAND_CHARGES_URI)
-reg1 = lc_api.post('/registrations?dev_date=2014-01-01', lc_private)
+reg1 = lc_api.post('/registrations?dev_date=2014-01-01', bk_private)
 puts reg1
 
 reg1['new_registrations'].each do |can|
     create_reg_document(can['date'], can['number'])
 end
 
+
 puts `synchronise 2014-01-01 2>&1`
+puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 cancel_1002 = '{"applicant": {"address_type":"RM", "name": "S & H Legal Group", "reference": "sddsds", "address": "49 Camille Circles\r\nPort Eulah\r\nPP39 6BY", "key_number": "1234567"}, "document_id": 31, "registration": {"date": "2014-01-01"}, "registration_no": "1007", "update_registration": {"type": "Cancellation"}}'
 

@@ -394,6 +394,14 @@ def get_history(number, date):
     return json.loads(response.text)
 
 
+def cancel_document(number, date, coc):
+    logging.info("Cancel document for %d %s %s", number, date, coc)
+    url = "{}/cancel_document/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], number, date, coc)
+    response = requests.post(url)
+    if response.status_code != 200:
+        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+
+
 def receive_cancellation(body):
 
     # Everything in body pertains to *one* detail record, but multiple legacy records
@@ -412,9 +420,10 @@ def receive_cancellation(body):
             oreg = get_registration(reg['number'], reg['date'])
             original_registrations.append(oreg)
 
-        for item in history:
-            for reg in item['registrations']:
+        for item in history[1:]:  # Don't need to to 'remove' the cancellation itself - it's not there
+            for index, reg in enumerate(item['registrations']):
                 delete_lc_row(reg['number'], reg['date'], item['class_of_charge'])
+                cancel_document(reg['number'], reg['date'], item['class_of_charge'])
 
     else:
         raise SynchroniserError("Unexpected lack of data for id {}".format(body['id']))
