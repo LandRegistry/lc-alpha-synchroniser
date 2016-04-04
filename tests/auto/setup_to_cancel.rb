@@ -40,9 +40,10 @@ lc_private = '{"parties": [{"type": "Estate Owner","names":[{
 
 bk_private = '{"parties": [
 {"addresses":[{"type":"Residence","address_lines":["a"], "county":"Devon","postcode":"PP1 1PP"}],"occupation":"", "trading_name": "", "residence_withheld": false, "case_reference": "BK62636",
-"type": "Debtor","names":[{
-"type": "Private Individual","private": {"forenames": ["Bob", "Oscar", "Francis"],"surname": "Howard"}
-}]}],
+"type": "Debtor","names":[
+{"type": "Private Individual","private": {"forenames": ["Bob", "Oscar", "Francis"],"surname": "Howard"}},
+{"type": "Private Individual","private": {"forenames": ["Robert"],"surname": "Howard"}}
+]}],
 "class_of_charge": "WOB",	
 "applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
 "reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
