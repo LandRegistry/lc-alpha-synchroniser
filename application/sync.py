@@ -341,7 +341,7 @@ def create_lc_row(converted):
     return put_response
 
             
-def create_document_row(resource, reg_no, reg_date, body, app_type):
+def create_document_row(resource, reg_no, reg_date, body, app_type, cancelled=False):
     logging.info('Create document row for %s %d %s', app_type, reg_no, reg_date)
     doc_row = {
         'class': class_to_numeric(body['class_of_charge']),
@@ -353,6 +353,10 @@ def create_document_row(resource, reg_no, reg_date, body, app_type):
         'canc_ind': '',
         'type': app_type
     }
+
+    if cancelled:
+        doc_row['canc_ind'] = 'Y'
+
     url = CONFIG['LEGACY_DB_URI'] + '/doc_info' + resource
     
     logging.debug(json.dumps(doc_row))
@@ -439,7 +443,7 @@ def receive_cancellation(body):
                 "number": original_registration['registration']['number'],
                 "date": original_registration['registration']['date']
             }
-        }, "CN")
+        }, "CN", True)
 
 
 def get_amendment_type(new_reg):

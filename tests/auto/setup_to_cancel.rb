@@ -29,9 +29,27 @@ end
 
 `ruby /vagrant/apps/legacy-adapter/data/clear.rb`
 `reset-data`
-puts `synchronise 2014-07-02 2>&1`
 
-cancel_1002 = '{"applicant": {"name": "S & H Legal Group", "reference": "sddsds", "address": "49 Camille Circles\r\nPort Eulah\r\nPP39 6BY", "key_number": "1234567"}, "document_id": 31, "registration": {"date": "2014-07-02"}, "registration_no": "1002", "update_registration": {"type": "Cancellation"}}'
+lc_private = '{"parties": [{"type": "Estate Owner","names":[{
+"type": "Private Individual","private": {"forenames": ["Bob", "Oscar", "Francis"],"surname": "Howard"}
+}]}],
+"class_of_charge": "C1",	
+"particulars": {"counties": ["Devon", "Somerset"],"district": "South Hams","description": "The House At The Beach"},
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
+
+
+lc_api = RestAPI.new($LAND_CHARGES_URI)
+reg1 = lc_api.post('/registrations?dev_date=2014-01-01', lc_private)
+puts reg1
+
+reg1['new_registrations'].each do |can|
+    create_reg_document(can['date'], can['number'])
+end
+
+puts `synchronise 2014-01-01 2>&1`
+
+cancel_1002 = '{"applicant": {"address_type":"RM", "name": "S & H Legal Group", "reference": "sddsds", "address": "49 Camille Circles\r\nPort Eulah\r\nPP39 6BY", "key_number": "1234567"}, "document_id": 31, "registration": {"date": "2014-01-01"}, "registration_no": "1007", "update_registration": {"type": "Cancellation"}}'
 
 lc_api = RestAPI.new($LAND_CHARGES_URI)
 reg1 = lc_api.post('/cancellations', cancel_1002)
@@ -40,5 +58,5 @@ reg1['cancellations'].each do |can|
     create_reg_document(can['date'], can['number'])
 end
 
-puts `synchronise 2016-04-01 2>&1`
-#puts "synchronise 2016-03-01"
+puts `synchronise 2016-04-04 2>&1`
+#puts "synchronise 2016-04-01"
