@@ -533,7 +533,8 @@ def receive_amendment(body, sync_date):
                                                 put_response.status_code, number, date))
 
                 #  Create document row regardless, unless a correction
-                if reg['amends_registration']['type'] != 'Correction':
+                #  DEFECT fix: this may be the new reg, so won't have amends_registration field
+                if 'amends_registration' not in reg or reg['amends_registration']['type'] != 'Correction':
                     original = history[-1]
                     if index < len(original['registrations']):
                         predecessor = original['registrations'][index]
