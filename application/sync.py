@@ -463,6 +463,9 @@ def get_amendment_type(new_reg):
         'Amendment': 'AM'
     }
 
+    if 'amends_registration' not in new_reg:
+        return 'NR'  # It's a new regn
+
     r_code = new_reg['amends_registration']['type']
     if r_code in type_of_amend:
         return type_of_amend[r_code]
@@ -533,7 +536,8 @@ def receive_amendment(body, sync_date):
                                                 put_response.status_code, number, date))
 
                 #  Create document row regardless, unless a correction
-                if reg['amends_registration']['type'] != 'Correction':
+                #  DEFECT fix: this may be the new reg, so won't have amends_registration field
+                if 'amends_registration' not in reg or reg['amends_registration']['type'] != 'Correction':
                     original = history[-1]
                     if index < len(original['registrations']):
                         predecessor = original['registrations'][index]
