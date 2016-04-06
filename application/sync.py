@@ -463,6 +463,9 @@ def get_amendment_type(new_reg):
         'Amendment': 'AM'
     }
 
+    if 'amends_registration' not in new_reg:
+        return 'NR'  # It's a new regn
+
     r_code = new_reg['amends_registration']['type']
     if r_code in type_of_amend:
         return type_of_amend[r_code]
