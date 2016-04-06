@@ -31,27 +31,59 @@ end
 `reset-data`
 
 
-wob_registration = '{"class_of_charge": "WOB", "parties": [{"occupation": "Who Knows", "residence_withheld": false,
-"legal_body_ref_year": "2012", "names": [{"type": "Private Individual", "private": {"forenames": ["Virginie", "May"], 
-"surname": "Conn"}}, {"type": "Private Individual", "private": {"forenames": ["Virginia"], "surname": "Conn"}}], 
-"type": "Debtor", "addresses": [{"address_string": "1 Not Specified Blah PL1 1AA", "type": "Residence",
-"address_lines": ["1 Not Specified"], "postcode": "PL1 1AA", "county": "Blah"}], "case_reference": "Swindon 188 of 2012",
-"legal_body": "Swindon", "legal_body_ref_no": "188", "trading_name": " "}], "applicant": {"name": "S & H Legal Group", "reference": " ", "address": "49 Camille Circles Port Eulah PP39 6BY", "key_number": "1234567", "address_type": "RM"}}'
+bk_private = '{"parties": [
+{"addresses":[{"type":"Residence","address_lines":["a"], "county":"Devon","postcode":"PP1 1PP"}],"occupation":"", "trading_name": "", "residence_withheld": false, "case_reference": "BK62636",
+"type": "Debtor","names":[
+{"type": "Private Individual","private": {"forenames": ["Bob", "Oscar", "Francis"],"surname": "Howard"}},
+{"type": "Private Individual","private": {"forenames": ["Robert"],"surname": "Howard"}}
+]}],
+"class_of_charge": "WOB",	
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
+
+bk_private1 = '{"parties": [
+{"addresses":[{"type":"Residence","address_lines":["a"], "county":"Devon","postcode":"PP1 1PP"}],"occupation":"", "trading_name": "", "residence_withheld": false, "case_reference": "BK62636",
+"type": "Debtor","names":[
+{"type": "Private Individual","private": {"forenames": ["Robert"],"surname": "Howard"}}
+]}],
+"class_of_charge": "WOB",	
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": ""}'
 
 lc_api = RestAPI.new($LAND_CHARGES_URI)
-reg1 = lc_api.post('/registrations?dev_date=2016-01-01', wob_registration)
+reg1 = lc_api.post('/registrations?dev_date=2014-01-01', bk_private1)
 puts reg1
 reg1['new_registrations'].each do |can|
     puts can['date']
     puts can['number']
     create_reg_document(can['date'], can['number'])
 end
-date = '2016-01-01'
+date = '2014-01-01'
 number = reg1['new_registrations'][0]['number']
 
 #puts `synchronise 2016-01-01 2>&1`
 
-wob_amend = '{"class_of_charge": "WOB", "parties": [{"occupation": "Who Knows", "type": "Debtor", "legal_body_ref_year": "2012", "names": [{"type": "Private Individual", "private": {"forenames": ["Virginie", "May"], "surname": "Connblha"}}, {"type": "Private Individual", "private": {"forenames": ["Virginia"], "surname": "Conn"}}, {"type": "Private Individual", "private": {"forenames": ["Virginia"], "surname": "Smith"}}], "addresses": [{"postcode": "PL1 1AA", "type": "Residence", "address_string": "1 Not Specified Blah PL1 1AA", "address_lines": ["1 Not Specified"], "county": "Blah"}], "case_reference": "Swindon 188 of 2012", "legal_body": "Swindon", "legal_body_ref_no": "188", "trading_name": " ", "residence_withheld": false}], "update_registration": {"type": "Amendment"}, "applicant": {"name": "S & H Legal Group", "reference": " ", "address": "49 Camille Circles Port Eulah PP39 6BY", "key_number": "1234567", "address_type": "RM"}}'
+
+wob_amend = '{"parties": [
+{"addresses":[{"type":"Residence","address_lines":["aaaaaah"], "county":"Devon","postcode":"PP1 1PP"}],"occupation":"", "trading_name": "", "residence_withheld": false, "case_reference": "BK62636",
+"type": "Debtor","names":[
+{"type": "Private Individual","private": {"forenames": ["Bob", "Oscar", "Francis"],"surname": "Howard"}},
+{"type": "Private Individual","private": {"forenames": ["Robert"],"surname": "Howard"}}
+]}],
+"class_of_charge": "WOB",	
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": "",
+"update_registration": {"type": "Amendment"}}'
+
+wob_amend1 = '{"parties": [
+{"addresses":[{"type":"Residence","address_lines":["aaaaaah"], "county":"Devon","postcode":"PP1 1PP"}],"occupation":"", "trading_name": "", "residence_withheld": false, "case_reference": "BK62636",
+"type": "Debtor","names":[
+{"type": "Private Individual","private": {"forenames": ["Robert"],"surname": "Howard"}}
+]}],
+"class_of_charge": "WOB",	
+"applicant": {"name": "Some Court","address": "11 Court Road, Court Town","key_number": "7654321",
+"reference": "ARGL1234567", "address_type": "RM"},"additional_information": "",
+"update_registration": {"type": "Amendment"}}'
 
 
 reg1 = lc_api.put("/registrations/#{date}/#{number}", wob_amend)
@@ -64,3 +96,13 @@ reg1['new_registrations'].each do |can|
 end
 
 #puts `synchronise 2016-04-03 2>&1`
+
+
+# Always get new number
+# If name changes, leave original visible
+# If name unchanged, hide original
+
+
+# One name unchanged - old expired, new visible         X
+# One name, changed - both visible                      X
+# One name, add one - both visible, new nos
