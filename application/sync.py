@@ -460,7 +460,9 @@ def get_amendment_type(new_reg):
         'Rectification': 'RC',
         'Cancellation': 'CN',
         'Part Cancellation': 'CP',
-        'Amendment': 'AM'
+        'Amendment': 'AM',
+        'Renewal': 'RN'
+
     }
 
     if 'amends_registration' not in new_reg:
