@@ -1,0 +1,57 @@
+{
+  "parties": [
+    {
+      "occupation": "Civil Servant",
+      "date_of_birth": "1980-01-01",
+      "type": "Debtor",
+      "names": [
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Bert"
+            ],
+            "surname": "Smith"
+          },
+          "search_key": "BERTSMITH"
+        },
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Alphonso",
+              "Alice"
+            ],
+            "surname": "Schmidt"
+          },
+          "search_key": "ALPHONSOALICESCHMIDT"
+        }
+      ],
+      "case_reference": "[WHAT GOES HERE] FIXME!",
+      "addresses": [
+        {
+          "address_string": "1 The Street, The Locality, The Town, The County, AA1 1AA",
+          "county": "The County",
+          "postcode": "AA1 1AA",
+          "type": "Residence",
+          "address_lines": [
+            "1 The Street",
+            "The Locality",
+            "The Town"
+          ]
+        }
+      ],
+      "residence_withheld": false
+    }
+  ],
+  "additional_information": "",
+  "revealed": true,
+  "status": "current",
+  "registration": {
+    "number": 1002,
+    "date": "2014-07-02"
+  },
+  "class_of_charge": "PAB"
+}

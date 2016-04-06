@@ -1,0 +1,36 @@
+{
+  "parties": [
+    {
+      "names": [
+        {
+          "subtype": "",
+          "type": "Private Individual",
+          "private": {
+            "forenames": [
+              "Jo",
+              "John"
+            ],
+            "surname": "Johnson"
+          },
+          "search_key": "JOJOHNJOHNSON"
+        }
+      ],
+      "type": "Estate Owner"
+    }
+  ],
+  "additional_information": "",
+  "revealed": true,
+  "status": "current",
+  "registration": {
+    "number": 1003,
+    "date": "2014-08-01"
+  },
+  "class_of_charge": "C1",
+  "particulars": {
+    "counties": [
+      "Devon"
+    ],
+    "district": "South Hams",
+    "description": "1 The Lane, Some Village"
+  }
+}
