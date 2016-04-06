@@ -61,14 +61,24 @@ end
 puts `synchronise 2014-01-01 2>&1`
 puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
-cancel_1002 = '{"applicant": {"address_type":"RM", "name": "S & H Legal Group", "reference": "sddsds", "address": "49 Camille Circles\r\nPort Eulah\r\nPP39 6BY", "key_number": "1234567"}, "document_id": 31, "registration": {"date": "2014-01-01"}, "registration_no": "1007", "update_registration": {"type": "Cancellation"}}'
+cancel_1007 = '{"applicant": {"address_type":"RM", "name": "S & H Legal Group", "reference": "sddsds", "address": "49 Camille Circles\r\nPort Eulah\r\nPP39 6BY", "key_number": "1234567"}, "document_id": 31, "registration": {"date": "2014-01-01"}, "registration_no": "1007", "update_registration": {"type": "Cancellation"}}'
 
 lc_api = RestAPI.new($LAND_CHARGES_URI)
-reg1 = lc_api.post('/cancellations', cancel_1002)
+reg1 = lc_api.post('/cancellations?dev_date=2015-01-01', cancel_1007)
 puts reg1
 reg1['cancellations'].each do |can|
     create_reg_document(can['date'], can['number'])
 end
 
-puts `synchronise 2016-04-04 2>&1`
+
+cancel_1008 = '{"applicant": {"address_type":"RM", "name": "S & H Legal Group", "reference": "sddsds", "address": "49 Camille Circles\r\nPort Eulah\r\nPP39 6BY", "key_number": "1234567"}, "document_id": 31, "registration": {"date": "2014-01-01"}, "registration_no": "1008", "update_registration": {"type": "Cancellation"}}'
+
+lc_api = RestAPI.new($LAND_CHARGES_URI)
+reg1 = lc_api.post('/cancellations?dev_date=2015-01-01', cancel_1008)
+puts reg1
+reg1['cancellations'].each do |can|
+    create_reg_document(can['date'], can['number'])
+end
+
+puts `synchronise 2015-01-01 2>&1`
 #puts "synchronise 2016-04-01"
