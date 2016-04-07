@@ -523,9 +523,9 @@ def receive_amendment(body, sync_date):
             raise SynchroniserError("Unable to handle cancellation implied by len[current] < len[previous]")
 
         for index, reg_summary in enumerate(item['registrations']):
-            if reg_summary['number'] == prev['number'] and reg_summary['date'] == prev['date']:
-                logging.info('SKIPPING')
-                continue  # Just don't repeat the same thing
+            # if reg_summary['number'] == prev['number'] and reg_summary['date'] == prev['date']:
+            #     logging.info('SKIPPING')
+            #     continue  # Just don't repeat the same thing
 
             prev['number'] = reg_summary['number']
             prev['date'] = reg_summary['date']
