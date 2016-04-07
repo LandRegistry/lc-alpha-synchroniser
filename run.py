@@ -8,11 +8,13 @@ from datetime import datetime
 
 
 reg = None
+typ = None
 if len(sys.argv) == 2:
     d = sys.argv[1]
-elif len(sys.argv) == 4 and sys.argv[1] == '-reg':
+elif len(sys.argv) == 5 and sys.argv[1] == '-reg':
     d = sys.argv[3]
     reg = sys.argv[2]
+    typ = sys.argv[4]
 else:
     d = datetime.now().strftime('%Y-%m-%d')
 
@@ -25,7 +27,7 @@ for key in dir(c):
         config[key] = getattr(c, key)
 
 setup_logging(config)
-if synchronise(config, d, reg_no=reg):
+if synchronise(config, d, reg_no=reg, appn=typ):
     exit(0)
 exit(1)
 

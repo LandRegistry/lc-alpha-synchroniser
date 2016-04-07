@@ -460,7 +460,9 @@ def get_amendment_type(new_reg):
         'Rectification': 'RC',
         'Cancellation': 'CN',
         'Part Cancellation': 'CP',
-        'Amendment': 'AM'
+        'Amendment': 'AM',
+        'Renewal': 'RN'
+
     }
 
     if 'amends_registration' not in new_reg:
@@ -753,14 +755,14 @@ def create_search_name(search_name):
     return name.upper()
 
 
-def get_entry_for_sync(date, reg_no):
+def get_entry_for_sync(date, reg_no, appn):
     logging.info('Get entries for %s %s', reg_no, date)
     url = CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + reg_no
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
         return [{
-            "application": "new",
+            "application": appn,
             "data": [{
                 "class_of_charge": data['class_of_charge'],
                 "date": date,
@@ -793,7 +795,7 @@ def get_search_entries_for_sync(date):
     return []
 
 
-def synchronise(config, date, reg_no=None):
+def synchronise(config, date, reg_no=None, appn=None):
     global CONFIG
     CONFIG = config
 
@@ -805,7 +807,7 @@ def synchronise(config, date, reg_no=None):
         entries = get_entries_for_sync(date)
         search_entries = get_search_entries_for_sync(date)
     else:  # For testing only at this time
-        entries = get_entry_for_sync(date, reg_no)
+        entries = get_entry_for_sync(date, reg_no, appn)
         search_entries = []
 
     logging.info("Synchroniser starts for date %s", date)
