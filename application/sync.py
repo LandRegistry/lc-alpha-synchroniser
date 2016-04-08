@@ -515,12 +515,21 @@ def receive_amendment(body, sync_date):
     # amendment_type = current_record['application']      # Get application_type from history[0]['application']
     # previous_record = history[1]                        # The second item is the predecessor
 
+    prev = {'number': '', 'date': ''}
+
     for hist_index, item in enumerate(history):
 
         if len(item['registrations']) < len(history[-1]['registrations']):
             raise SynchroniserError("Unable to handle cancellation implied by len[current] < len[previous]")
 
         for index, reg_summary in enumerate(item['registrations']):
+            # if reg_summary['number'] == prev['number'] and reg_summary['date'] == prev['date']:
+            #     logging.info('SKIPPING')
+            #     continue  # Just don't repeat the same thing
+
+            prev['number'] = reg_summary['number']
+            prev['date'] = reg_summary['date']
+
             reg = get_registration(reg_summary['number'], reg_summary['date'])
             reg_date = datetime.datetime.strptime(reg_summary['date'], '%Y-%m-%d').date()
 
@@ -549,10 +558,11 @@ def receive_amendment(body, sync_date):
                     coc = class_to_numeric(reg['class_of_charge'])
                     res = "/{}/{}/{}".format(reg_summary['number'], reg_summary['date'], coc)
 
+                    amtype = get_amendment_type(reg)
                     create_document_row(res, reg_summary['number'], reg_summary['date'], {
                         'class_of_charge': original['class_of_charge'],
-                        'registration': {'number': predecessor['number'],'date': predecessor['date']}
-                    }, get_amendment_type(reg))
+                        'registration': {'number': predecessor['number'], 'date': predecessor['date']}
+                    }, amtype)
 
             elif reg_date < sync_date:
                 #  Something old; if not revealed, remove LC row if it exists

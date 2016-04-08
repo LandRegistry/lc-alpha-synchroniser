@@ -68,6 +68,8 @@ end
 date = '2014-01-30'
 number = 1007
 
+puts `synchronise 2014-01-30 2>&1`
+
 #lc_api = RestAPI.new($LAND_CHARGES_URI)
 #reg1 = lc_api.post('/cancellations?dev_date=2015-01-30', part_cancel)
 #puts reg1
@@ -88,3 +90,5 @@ reg1['new_registrations'].each do |can|
     puts can['number']
     create_reg_document(can['date'], can['number'])
 end
+
+puts `synchronise 2016-01-30 2>&1`
