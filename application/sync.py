@@ -494,8 +494,8 @@ def pab_amend_case(reg):
 
         if has_expired(pab_reg['expired_date']):
             logging.info('Drop associated PAB: %s %s', number, date)
-            delete_lc_row(number, date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
-                                                  # has affected anything not a PAB..
+            delete_lc_row(int(number), date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
+                                                       # has affected anything not a PAB..
 
 
 def receive_amendment(body, sync_date):
