@@ -36,7 +36,7 @@ def setup_logging(config):
     root_logger = logging.getLogger()
     logging.setLogRecordFactory(record_factory)
     formatter = logging.Formatter('%(asctime)s.%(msecs)03d %(levelname)s [%(appname)s]'
-                                  ' (PID %(process)d) Message: %(message)s',
+                                  ' %(message)s',
                                   "%Y-%m-%d %H:%M:%S")
 
     out_handler = logging.StreamHandler(sys.stdout)
