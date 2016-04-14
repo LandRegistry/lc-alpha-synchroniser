@@ -580,6 +580,10 @@ def receive_amendment(body, sync_date):
             else:
                 raise SynchroniserError('Error: synchronising records from the future')  # Or being run for a past day
 
+        if item['application'] == 'Correction':
+            # No need to proceed
+            break
+
 
 def receive_searches(application):
     # for application in body:
