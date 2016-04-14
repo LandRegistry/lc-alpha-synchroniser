@@ -526,7 +526,6 @@ def receive_amendment(body, sync_date):
             # if reg_summary['number'] == prev['number'] and reg_summary['date'] == prev['date']:
             #     logging.info('SKIPPING')
             #     continue  # Just don't repeat the same thing
-
             prev['number'] = reg_summary['number']
             prev['date'] = reg_summary['date']
 
@@ -543,8 +542,8 @@ def receive_amendment(body, sync_date):
                     logging.info("%s %d %s is current", reg['class_of_charge'], reg_summary['number'], reg_summary['date'])
                     put_response = create_lc_row(create_legacy_data(reg))
                     if put_response.status_code != 200:
-                        raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
-                                                put_response.status_code, number, date))
+                        raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{} - {}".format(
+                                                put_response.status_code, number, date, put_response.text))
 
                 #  Create document row regardless, unless a correction
                 #  DEFECT fix: this may be the new reg, so won't have amends_registration field
@@ -579,62 +578,7 @@ def receive_amendment(body, sync_date):
 
                 # Documents do not change
             else:
-                raise SynchroniserError('Error: synchronising records from the future') # Or being run for a past day
-
-
-    #
-    # if has_expired(previous_record['expired_date']):
-    #     for item in previous_record['registrations']:
-    #         delete_lc_row(item['number'], item['date'], previous_record['class_of_charge'])
-    #
-    # for index, item in enumerate(current_record['registrations']):
-    #     move_images(item['number'], item['date'], current_record['class_of_charge'])
-    #     reg = get_registration(item['number'], item['date'])
-    #     logging.info('Synchronise %d %s', item['number'], item['date'])
-    #
-    #     if 'amends_registration' in reg and 'PAB' in reg['amends_registration']:
-    #         logging.info('Process WOB amendment impacting a PAB')
-    #         # Special case (yay) - need to see if the PAB affected by a WOB amendment should be 'dropped'
-    #         pab_ref = reg['amends_registration']['PAB']
-    #         m = re.match("(\d+)\((\d{4}\-\d+\-\d+)\)", pab_ref) # Nasty, but it's stored in one field
-    #         if m is not None:
-    #             number = m.group(1)
-    #             date = m.group(2)
-    #             pab_reg = get_registration(number, date)
-    #
-    #             if has_expired(pab_reg['expired_date']):
-    #                 logging.info('Drop associated PAB: %s %s', number, date)
-    #                 delete_lc_row(number, date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
-    #                                                       # has affected anything not a PAB...
-    #
-    #     converted = create_legacy_data(reg)
-    #
-    #     put_response = create_lc_row(converted)
-    #     if put_response.status_code == 200:
-    #         logging.debug('PUT /land_charges - OK')
-    #     else:
-    #         # TODO: this causes the loop to break. Which is bad.
-    #         raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}".format(
-    #                                 put_response.status_code, number, date))
-    #     coc = class_to_numeric(current_record['class_of_charge'])
-    #
-    #     if index < len(previous_record['registrations']):
-    #         predecessor = previous_record['registrations'][index]
-    #
-    #         res = "/{}/{}/{}".format(item['number'], item['date'], coc)
-    #
-    #         if reg['amends_registration']['type'] != 'Correction':  # No document row for corrections
-    #             a_type = get_amendment_type(reg)
-    #             create_document_row(res, item['number'], item['date'], {
-    #                 'class_of_charge': previous_record['class_of_charge'],
-    #                 'registration': {'number': predecessor['number'],'date': predecessor['date']}
-    #             }, a_type)
-    #     else:
-    #         res = "/{}/{}/{}".format(item['number'], item['date'], coc)
-    #         create_document_row(res, item['number'], item['date'], {
-    #             'class_of_charge': previous_record['class_of_charge'],
-    #             'registration': {'number': item['number'], 'date': item['date']}
-    #         }, 'NR')
+                raise SynchroniserError('Error: synchronising records from the future')  # Or being run for a past day
 
 
 def receive_searches(application):
@@ -647,9 +591,9 @@ def receive_searches(application):
 
     response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + str(request_id), headers=get_headers())
     if response.status_code != 200:
-        logging.error("GET /request_details/{} - {}", request_id, response.status_code)
-        raise SynchroniserError("Unexpected response {} on GET /request_details/{}".format(
-            response.status_code, request_id))
+        logging.warning("GET /request_details/{} - {}".format(request_id, response.status_code))
+        raise SynchroniserError("Unexpected response {} on GET /request_details/{} - {}".format(
+            response.status_code, request_id, response.text))
     else:
         logging.debug('Search retrieved')
         body = response.json()
@@ -684,6 +628,7 @@ def receive_searches(application):
             logging.warning("Form not found - assume previously synchronised")
 
         if doc_response.status_code != 200:
+            logging.warning('response from GET /registered_search_forms: ' + doc_response.text)
             raise SynchroniserError(uri + ' - ' + str(doc_response.status_code))
 
         document = doc_response.json()
@@ -692,6 +637,7 @@ def receive_searches(application):
         form_response = requests.get(uri, headers=get_headers())
 
         if form_response.status_code != 200:
+            logging.warning('response from GET /forms: ' + doc_response.text)
             raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
 
         form = form_response.json()
@@ -703,6 +649,7 @@ def receive_searches(application):
             image_response = requests.get(uri, headers=get_headers())
 
             if image_response.status_code != 200:
+                logging.warning('response from GET /forms/x/y: ' + image_response.text)
                 raise SynchroniserError(uri + ' - ' + str(image_response.status_code))
 
             content_type = image_response.headers['Content-Type']
@@ -727,12 +674,14 @@ def receive_searches(application):
             #                                                      image_size, image_scan_date)
             archive_response = requests.put(uri, params={"data": json.dumps(data)}, data=bin_data, headers=get_headers({'Content-Type': content_type}))
             if archive_response.status_code != 200:
+                logging.warning('response from PUT /search_images: ' + archive_response.text)
                 raise SynchroniserError(uri + ' - ' + str(archive_response.status_code))
 
         # If we've got here, then its on the legacy DB
         uri = '{}/registered_search_forms/{}'.format(CONFIG['CASEWORK_API_URI'], request_id)
         del_response = requests.delete(uri, headers=get_headers())
         if del_response.status_code != 200:
+            logging.warning('response from DELETE /registered_search_forms: ' + del_response.text)
             raise SynchroniserError(uri + ' - ' + str(del_response.status_code))
 
 
@@ -809,6 +758,10 @@ def synchronise(config, date, reg_no=None, appn=None):
     global CONFIG
     CONFIG = config
 
+    minor_errors = 0
+    major_errors = 0
+    processed = 0
+
     hostname = CONFIG['AMQP_URI']
     connection = kombu.Connection(hostname=hostname)
     producer = connection.SimpleQueue('errors')
@@ -829,6 +782,7 @@ def synchronise(config, date, reg_no=None, appn=None):
         logging.info("Process {}".format(entry['application']))
 
         try:
+            processed += 1
             if entry['application'] == 'new':
                 receive_new_regs(entry)
             elif entry['application'] == 'Cancellation':
@@ -841,8 +795,9 @@ def synchronise(config, date, reg_no=None, appn=None):
         # pylint: disable=broad-except
         except Exception as exception:
             there_were_errors = True
+            major_errors += 1
             logging.error('Unhandled error: %s', str(exception))
-            s = log_stack()
+            s = log_stack('important')
             raise_error(producer, {
                 "message": str(exception),
                 "stack": s,
@@ -852,13 +807,13 @@ def synchronise(config, date, reg_no=None, appn=None):
 
     for entry in search_entries:
         logging.info("Process {}".format(entry['search_id']))
-
         try:
             receive_searches(entry)
         except Exception as exception:
             there_were_errors = True
-            logging.error('Unhandled error: %s', str(exception))
-            s = log_stack()
+            minor_errors += 1
+            logging.warning('Unhandled error: %s', str(exception))
+            s = log_stack('minor')
             raise_error(producer, {
                 "message": str(exception),
                 "stack": s,
@@ -873,15 +828,18 @@ def synchronise(config, date, reg_no=None, appn=None):
     if there_were_errors:
         logging.error("There were errors")
 
-    return not there_were_errors
+    return processed, major_errors, minor_errors
 
 
-def log_stack():
+def log_stack(level):
     call_stack = traceback.format_exc()
 
     lines = call_stack.split("\n")
     for line in lines:
-        logging.error(line)
+        if level == 'minor':
+            logging.warning(line)
+        else:
+            logging.error(line)
     return call_stack
 
 
