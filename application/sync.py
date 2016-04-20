@@ -244,10 +244,12 @@ def move_images(number, date, coc):
         raise SynchroniserError(uri + ' - ' + str(form_response.status_code))
 
     form = form_response.json()
-    logging.info('Processing form for %d / %s', number, date)
+    logging.debug('Processing form for %d / %s', number, date)
+    pages_moved = 0
     for image in form['images']:
         page_number = image['page']
-        logging.info("  Page %d", page_number)
+        logging.debug("  Page %d", page_number)
+        pages_moved += 1
         size = image['size']
         uri = '{}/forms/{}/{}?raw=y'.format(CONFIG['CASEWORK_API_URI'], document['document_id'], page_number)
         image_response = requests.get(uri, headers=get_headers())
@@ -260,16 +262,17 @@ def move_images(number, date, coc):
 
         # Right, now post that to the main database
         class_of_charge = coc
-        logging.info('Content-Type: ' + content_type)
+        logging.debug('Content-Type: ' + content_type)
         uri = "{}/images/{}/{}/{}/{}?class={}".format(CONFIG['LEGACY_DB_URI'], date, number, page_number, size, class_of_charge)
 
         headers = get_headers({'Content-Type': content_type})
-        logging.info(headers)
+        logging.debug(headers)
 
         archive_response = requests.put(uri, data=bin_data, headers=headers)
         if archive_response.status_code != 200:
             raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, archive_response.status_code, archive_response.text))
 
+    logging.info("> %d pages moved", pages_moved)
     mark_for_delete(document['document_id'])
 
     # If we've got here, then its on the legacy DB
@@ -278,6 +281,8 @@ def move_images(number, date, coc):
     if del_response.status_code != 200:
         raise SynchroniserError("Unexpected response from {} - {}: {}".format(uri, del_response.status_code, del_response.text))
 
+    logging.info("> Move image completed", pages_moved)
+
 
 def receive_new_regs(body):
     for application in body['data']:
@@ -285,7 +290,6 @@ def receive_new_regs(body):
         number = application['number']
         date = application['date']
 
-        logging.info("-----------------------------------------------")
         logging.info("Process registration %d/%s", number, date)
 
         response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number), headers=get_headers())
@@ -320,24 +324,24 @@ def create_lc_row(converted):
                             params={"date": converted['registration_date'], "class": converted['class_type']})
 
     if get_resp.status_code == 200:
-        logging.info("Already an entry on destination. Delete it.")
+        logging.info("> Already an entry on destination. Deleting it.")
         #  It exists, delete it...
         del_resp = requests.delete("{}/land_charges/{}/{}/{}".format(
             CONFIG['LEGACY_DB_URI'], converted['registration_no'].strip(),
             converted['registration_date'], converted['class_type']))
-        logging.info("Deleting existing row: " + str(del_resp.status_code))
 
         if del_resp.status_code != 200:
             raise SynchroniserError("Failed to delete record: {}".format(del_resp.text))
+        logging.info("> Row deleted")
 
     elif get_resp.status_code != 404:
         raise SynchroniserError("Unexpected response for GET /land_charge: {}, {}".format(get_resp.status_code, get_resp.text))
 
-    logging.info('PUT ' + json.dumps(converted))
+    logging.info('> Row data: ' + json.dumps(converted))
 
     put_response = requests.put(CONFIG['LEGACY_DB_URI'] + '/land_charges',
                                 data=json.dumps(converted), headers=get_headers({'Content-Type': 'application/json'}))
-    logging.info('Response: %d', put_response.status_code)
+    logging.info('Response: %d - %s', put_response.status_code, put_response.text)
     return put_response
 
             
@@ -359,13 +363,14 @@ def create_document_row(resource, reg_no, reg_date, body, app_type, cancelled=Fa
 
     url = CONFIG['LEGACY_DB_URI'] + '/doc_info' + resource
     
-    logging.debug(json.dumps(doc_row))
+    logging.info("> Row data: " + json.dumps(doc_row))
     put = requests.put(url,
                        data=json.dumps(doc_row),
                        headers=get_headers({'Content-Type': 'application/json'}))
-    logging.info('PUT %s - %s', url, str(put.status_code))
+    logging.debug('PUT %s - %s - %s', url, str(put.status_code), put.text)
     if put.status_code != 200:
         raise SynchroniserError('PUT /doc_info - ' + str(put.status_code))
+    logging.info("> Success")
     return put
 
 
@@ -376,6 +381,7 @@ def delete_lc_row(number, date, class_of_charge):
     if delete.status_code != 200:
         logging.error('DELETE /land_charges - %s', str(delete.status_code))
         raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
+    logging.info("> Deleted")
 
 
 def get_regn_key(regn):
@@ -493,7 +499,7 @@ def pab_amend_case(reg):
         pab_reg = get_registration(number, date)
 
         if has_expired(pab_reg['expired_date']):
-            logging.info('Drop associated PAB: %s %s', number, date)
+            logging.info('> Drop associated PAB: %s %s', number, date)
             delete_lc_row(int(number), date, 'PA(B)')  # Hardcode 'PAB' is OK - it'll fail (good) if somehow a WOB amend
                                                        # has affected anything not a PAB..
 
@@ -590,7 +596,7 @@ def receive_searches(application):
     search_id = application['search_id']
     request_id = application['request_id']
 
-    logging.info("-----------------------------------------------")
+    logging.info("====================================================")
     logging.info("Process search id %d", search_id)
 
     response = requests.get(CONFIG['REGISTER_URI'] + '/request_details/' + str(request_id), headers=get_headers())
@@ -783,6 +789,7 @@ def synchronise(config, date, reg_no=None, appn=None):
 
     there_were_errors = False
     for entry in entries:
+        logging.info('= BEGIN ==========================================')
         logging.info("Process {}".format(entry['application']))
 
         try:
@@ -796,6 +803,8 @@ def synchronise(config, date, reg_no=None, appn=None):
             else:
                 raise SynchroniserError('Unknown application type: {}'.format(entry['application']))
 
+            logging.info('= COMPLETE ======================================')
+
         # pylint: disable=broad-except
         except Exception as exception:
             there_were_errors = True
@@ -808,6 +817,7 @@ def synchronise(config, date, reg_no=None, appn=None):
                 "subsystem": CONFIG['APPLICATION_NAME'],
                 "type": "E"
             })
+            logging.info('= FAILED ========================================')
 
     for entry in search_entries:
         logging.info("Process {}".format(entry['search_id']))
