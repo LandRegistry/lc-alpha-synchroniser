@@ -300,6 +300,8 @@ def move_images(number, date, coc):
 def receive_new_regs(body):
     global step
 
+    error_messages = ''
+
     for application in body['data']:
 
         number = application['number']
@@ -310,15 +312,21 @@ def receive_new_regs(body):
         step = '5.1'
         response = requests.get(CONFIG['REGISTER_URI'] + '/registrations/' + date + '/' + str(number), headers=get_headers())
         if response.status_code != 200:
-            error("GET /registrations/{} - {}", number, response.status_code)
-            raise SynchroniserError("Unexpected response {} on GET /registrations/{}/{}: ".format(
-                                    response.status_code, date, number, response.text))
+            msg = "Unexpected response {} on GET /registrations/{}/{}: .".format(response.status_code, date, number, response.text)
+            error(msg)
+            error_messages += msg
+
         else:
             logging.debug('Registration retrieved')
             body = response.json()
 
             step = '5.2'
-            move_images(number, date, body['class_of_charge'])
+            try:
+                move_images(number, date, body['class_of_charge'])
+            except SynchroniserError as e:
+                error_messages += str(e)
+                error(str(e))
+                continue
 
             step = '5.3'
             converted = create_legacy_data(body)
@@ -327,12 +335,21 @@ def receive_new_regs(body):
             if put_response.status_code == 200:
                 logging.debug('PUT /land_charges - OK')
             else:
-                # TODO: this causes the (inner, new regs) loop to break. Which is bad.
-                raise SynchroniserError("Unexpected response {} on PUT /land_charges for {}/{}: ".format(
-                                        put_response.status_code, number, date, put_response.text))
+                msg = "Unexpected response {} on PUT /land_charges for {}/{}: .".format(
+                      put_response.status_code, number, date, put_response.text)
+                error(msg)
+                error_messages += msg
+
             step = '5.4'
             coc = class_to_numeric(body['class_of_charge'])
-            create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
+            try:
+                create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
+            except SynchroniserError as e:
+                error_messages += str(e)
+                error(str(e))
+
+    if error_messages != '':
+        raise SynchroniserError(error_messages)
 
 
 def create_lc_row(converted):
