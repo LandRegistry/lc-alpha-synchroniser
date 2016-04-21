@@ -419,7 +419,7 @@ def delete_lc_row(number, date, class_of_charge):
     delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource, headers=get_headers())
     if delete.status_code != 200:
         error('DELETE /land_charges - %s', str(delete.status_code))
-        raise SynchroniserError('DELETE /land_charges - ' + str(delete.status_code))
+        raise SynchroniserError('DELETE /land_charges - . ' + str(delete.status_code))
     info("  > Deleted")
 
 
@@ -435,7 +435,7 @@ def get_history(number, date):
     url = CONFIG['REGISTER_URI'] + '/history/' + date + '/' + str(number)
     response = requests.get(url, headers=get_headers())
     if response.status_code != 200:
-        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+        raise SynchroniserError("Unexpected response {} from {}. ".format(response.status_code, url))
     return json.loads(response.text)
 
 
@@ -444,13 +444,15 @@ def cancel_document(number, date, coc):
     url = "{}/cancel_document/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], number, date, coc)
     response = requests.post(url)
     if response.status_code != 200:
-        raise SynchroniserError("Unexpected response {} from {}".format(response.status_code, url))
+        raise SynchroniserError("Unexpected response {} from {}. ".format(response.status_code, url))
 
 
 def receive_cancellation(body):
     global step
     # Everything in body pertains to *one* detail record, but multiple legacy records
     # However, still assume an image per item
+
+    error_messages = ''
 
     if len(body['data']) > 0:
         # Iterate through the whole history...
@@ -471,9 +473,18 @@ def receive_cancellation(body):
         for item in history[1:]:  # Don't need to to 'remove' the cancellation itself - it's not there
             for index, reg in enumerate(item['registrations']):
                 step = '7.4'
-                delete_lc_row(reg['number'], reg['date'], item['class_of_charge'])
+                try:
+                    delete_lc_row(reg['number'], reg['date'], item['class_of_charge'])
+                except SynchroniserError as e:
+                    error(str(e))
+                    error_messages += str(e)
                 step = '7.5'
-                cancel_document(reg['number'], reg['date'], item['class_of_charge'])
+
+                try:
+                    cancel_document(reg['number'], reg['date'], item['class_of_charge'])
+                except SynchroniserError as e:
+                    error(str(e))
+                    error_messages += str(e)
 
     else:
         raise SynchroniserError("Unexpected lack of data for id {}".format(body['id']))
@@ -482,7 +493,10 @@ def receive_cancellation(body):
     original_registrations = sorted(original_registrations, key=get_full_regn_key)
 
     if len(original_registrations) != len(body['data']):
-        raise SynchroniserError("Unable to process unmatched cancellation lengths")
+        msg = "Unable to process unmatched cancellation lengths. "
+        error(msg)
+        error_messages += msg
+        #raise SynchroniserError("Unable to process unmatched cancellation lengths")
 
     step = '7.6'
     for index, ref in enumerate(body['data']):
@@ -496,13 +510,20 @@ def receive_cancellation(body):
                                       class_to_numeric(registration['class_of_charge']))
 
         original_registration = original_registrations[index]
-        create_document_row(resource, number, date, {
-            "class_of_charge": original_registration['class_of_charge'],
-            "registration": {
-                "number": original_registration['registration']['number'],
-                "date": original_registration['registration']['date']
-            }
-        }, "CN", True)
+        try:
+            create_document_row(resource, number, date, {
+                "class_of_charge": original_registration['class_of_charge'],
+                "registration": {
+                    "number": original_registration['registration']['number'],
+                    "date": original_registration['registration']['date']
+                }
+            }, "CN", True)
+        except SynchroniserError as e:
+            error(str(e))
+            error_messages += str(e)
+
+    if error_messages != '':
+        raise SynchroniserError(error_messages)
 
 
 def get_amendment_type(new_reg):
@@ -570,6 +591,8 @@ def receive_amendment(body, sync_date):
     # amendment_type = current_record['application']      # Get application_type from history[0]['application']
     # previous_record = history[1]                        # The second item is the predecessor
 
+    error_messages = ''
+
     prev = {'number': '', 'date': ''}
 
     step = '6.2'
@@ -602,7 +625,11 @@ def receive_amendment(body, sync_date):
                 if not has_expired(reg['expired_date']):
                     step = '6.13'
                     info("%s %d %s is current", reg['class_of_charge'], reg_summary['number'], reg_summary['date'])
-                    create_lc_row(create_legacy_data(reg))
+                    try:
+                        create_lc_row(create_legacy_data(reg))
+                    except SynchroniserError as e:
+                        error_messages += str(e)
+                        error(str(e))
 
                 #  Create document row regardless, unless a correction
                 #  DEFECT fix: this may be the new reg, so won't have amends_registration field
@@ -619,10 +646,14 @@ def receive_amendment(body, sync_date):
                     res = "/{}/{}/{}".format(reg_summary['number'], reg_summary['date'], coc)
 
                     amtype = get_amendment_type(reg)
-                    create_document_row(res, reg_summary['number'], reg_summary['date'], {
-                        'class_of_charge': original['class_of_charge'],
-                        'registration': {'number': predecessor['number'], 'date': predecessor['date']}
-                    }, amtype)
+                    try:
+                        create_document_row(res, reg_summary['number'], reg_summary['date'], {
+                            'class_of_charge': original['class_of_charge'],
+                            'registration': {'number': predecessor['number'], 'date': predecessor['date']}
+                        }, amtype)
+                    except SynchroniserError as e:
+                        error_messages += str(e)
+                        error(str(e))
 
             elif reg_date < sync_date:
                 step = '6.5'
@@ -631,12 +662,20 @@ def receive_amendment(body, sync_date):
                 if has_expired(reg['expired_date']):
                     step = '6.7'
                     info("%s %d %s has expired", reg['class_of_charge'], reg_summary['number'], reg_summary['date'])
-                    delete_lc_row(reg_summary['number'], reg_summary['date'], reg['class_of_charge'])
+                    try:
+                        delete_lc_row(reg_summary['number'], reg_summary['date'], reg['class_of_charge'])
+                    except SynchroniserError as e:
+                        error_messages += str(e)
+                        error(str(e))
 
                 #  If revealed, replace LC row as appropriate (some fields like addl info may change)
                 else:
                     step = '6.8'
-                    create_lc_row(create_legacy_data(reg))
+                    try:
+                        create_lc_row(create_legacy_data(reg))
+                    except SynchroniserError as e:
+                        error_messages += str(e)
+                        error(str(e))
 
                 # Documents do not change
             else:
@@ -645,6 +684,9 @@ def receive_amendment(body, sync_date):
         if item['application'] == 'Correction':
             # No need to proceed
             break
+
+    if error_messages != '':
+        raise SynchroniserError(error_messages)
 
 
 def receive_searches(application):
