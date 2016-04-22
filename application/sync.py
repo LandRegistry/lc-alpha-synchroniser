@@ -236,7 +236,7 @@ def get_registration(number, date):
 
 
 def move_images(number, date, coc):
-    info("Moving image: %d, %s", number, date)
+    info("INTENT: Moving image: %d, %s", number, date)
     uri = '{}/registered_forms/{}/{}'.format(CONFIG['CASEWORK_API_URI'], date, number)
     doc_response = requests.get(uri, headers=get_headers())
     if doc_response.status_code == 404:
@@ -331,13 +331,11 @@ def receive_new_regs(body):
             step = '5.3'
             converted = create_legacy_data(body)
 
-            put_response = create_lc_row(converted)
-            if put_response.status_code == 200:
-                logging.debug('PUT /land_charges - OK')
-            else:
-                msg = "Unexpected response {} on PUT /land_charges for {}/{}: .".format(
-                      put_response.status_code, number, date, put_response.text)
-                error(msg)
+            try:
+                create_lc_row(converted)
+            except SynchroniserError as e:
+                msg = str(e)
+                error("  > FAILED: " + msg)
                 error_messages += msg
 
             step = '5.4'
@@ -346,14 +344,14 @@ def receive_new_regs(body):
                 create_document_row("/{}/{}/{}".format(number, date, coc), number, date, body, 'NR')
             except SynchroniserError as e:
                 error_messages += str(e)
-                error(str(e))
+                error("  > FAILED: " + str(e))
 
     if error_messages != '':
         raise SynchroniserError(error_messages)
 
 
 def create_lc_row(converted):
-    info('Create LC row for %s %s %s', converted['class_type'],
+    info('INTENT: Create LC row for %s %s %s', converted['class_type'],
                  converted['registration_no'].strip(), converted['registration_date'])
     get_resp = requests.get(CONFIG['LEGACY_DB_URI'] + '/land_charges/' + converted['registration_no'].strip(),
                             params={"date": converted['registration_date'], "class": converted['class_type']})
@@ -385,7 +383,7 @@ def create_lc_row(converted):
 
             
 def create_document_row(resource, reg_no, reg_date, body, app_type, cancelled=False):
-    info('Create document row for %s %d %s', app_type, reg_no, reg_date)
+    info('INTENT: Create document row for %s %d %s', app_type, reg_no, reg_date)
     doc_row = {
         'class': class_to_numeric(body['class_of_charge']),
         'reg_no': str(reg_no),
@@ -414,7 +412,7 @@ def create_document_row(resource, reg_no, reg_date, body, app_type, cancelled=Fa
 
 
 def delete_lc_row(number, date, class_of_charge):
-    info('Delete LC row %d %s (%s)', number, date, class_of_charge)
+    info('INTENT: Delete LC row %d %s (%s)', number, date, class_of_charge)
     resource = "/{}/{}/{}".format(number, date, class_to_roman(class_of_charge))
     delete = requests.delete(CONFIG['LEGACY_DB_URI'] + '/land_charges' + resource, headers=get_headers())
     if delete.status_code != 200:
@@ -440,7 +438,7 @@ def get_history(number, date):
 
 
 def cancel_document(number, date, coc):
-    info("Cancel document for %d %s %s", number, date, coc)
+    info("INTENT: Cancel document for %d %s %s", number, date, coc)
     url = "{}/cancel_document/{}/{}/{}".format(CONFIG['LEGACY_DB_URI'], number, date, coc)
     response = requests.post(url)
     if response.status_code != 200:
