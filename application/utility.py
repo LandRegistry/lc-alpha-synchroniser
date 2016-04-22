@@ -55,7 +55,7 @@ def encode_name(pi_name):
     if len(name['forenames']) == 0:  # Special case.
         return encode_variant_a_name(name['surname'])
 
-    logging.info(name)
+    logging.debug(name)
     mash_with_punc = ' '.join(name['forenames'])
     mash_with_punc += '*' + name['surname']
     return string_encode(mash_with_punc)
